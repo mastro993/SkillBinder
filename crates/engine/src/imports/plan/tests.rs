@@ -64,6 +64,7 @@ fn storing_a_plan_prunes_the_expired_ones() {
         sources: Vec::new(),
         origins: Vec::new(),
         placements: Vec::new(),
+        found_in: Vec::new(),
     };
 
     state.store(&prepared).unwrap();

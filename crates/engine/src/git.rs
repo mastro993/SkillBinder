@@ -1,7 +1,9 @@
 //! Bounded Git operations for the library's skill directories and their records.
 mod adoption;
+mod commit;
 mod discovery;
 mod install;
+mod note;
 mod objects;
 mod pending;
 mod process;
@@ -10,6 +12,7 @@ mod source;
 mod tests;
 mod validation;
 
+pub(crate) use commit::Committer;
 pub(crate) use install::Installer;
 pub(crate) use source::validate as validate_source;
 pub(crate) use validation::url as validate_url;
@@ -89,17 +92,15 @@ impl Git {
         remote: Option<&RemoteConfig>,
         action: SyncAction,
     ) -> AppResult<SyncSnapshot> {
-        self.perform_with(repo, remote, action, &|| Ok(()))
+        self.perform_with(repo, remote, action, &tests::Unnamed)
     }
-    /// Executes an explicit operation, running `before_commit` right before a Push or Sync
-    /// commits when nothing was pulled, so files it writes join that commit and never dirty the
-    /// library ahead of a Pull.
-    pub fn perform_with(
+    /// Executes an explicit operation; a Push or Sync commits through `committer`.
+    pub(crate) fn perform_with(
         &self,
         repo: &Path,
         remote: Option<&RemoteConfig>,
         action: SyncAction,
-        before_commit: &dyn Fn() -> AppResult<()>,
+        committer: &dyn Committer,
     ) -> AppResult<SyncSnapshot> {
         if matches!(action, SyncAction::Disconnect) {
             self.disconnect_origin(repo)?;
@@ -133,9 +134,9 @@ impl Git {
         }
         if matches!(action, SyncAction::Push | SyncAction::Sync) {
             if before.behind == 0 {
-                before_commit()?;
+                committer.prepare()?;
             }
-            self.commit(repo)?;
+            self.commit(repo, committer)?;
             if self.revision(repo, "HEAD")?.is_some() {
                 self.network_output(
                     repo,
@@ -234,6 +235,8 @@ impl Git {
                     .as_secs()
             }),
             last_error: None,
+            // The engine names the device.
+            device: String::new(),
         })
     }
     fn reconcile_origin(&self, repo: &Path, remote: &RemoteConfig) -> AppResult<()> {
@@ -429,39 +432,6 @@ impl Git {
                 "/records/",
             ],
         )?;
-        Ok(())
-    }
-    fn commit(&self, repo: &Path) -> AppResult<()> {
-        // A pathspec absent both from HEAD and disk is not passed to `add`.
-        for path in MANAGED {
-            if repo.join(path).exists() || !self.output(repo, &["ls-files", "--", path])?.is_empty()
-            {
-                self.output(repo, &["add", "-f", "-A", "--", path])?;
-            }
-        }
-        // Publish only what a fetch would accept, so a pushed commit never blocks later fetches.
-        let staged = self.output(repo, &["write-tree"])?;
-        self.validate_tree(repo, staged.trim())?;
-        // A library without skills still publishes a first, empty commit.
-        if self.revision(repo, "HEAD")?.is_none()
-            || !self
-                .output(repo, &["diff", "--cached", "--name-only", "-z"])?
-                .is_empty()
-        {
-            self.output(
-                repo,
-                &[
-                    "-c",
-                    "user.name=SkillBinder",
-                    "-c",
-                    "user.email=local@skillbinder.invalid",
-                    "commit",
-                    "--allow-empty",
-                    "-m",
-                    "chore(skills): synchronize library",
-                ],
-            )?;
-        }
         Ok(())
     }
     /// Runs a local command. Quitting waits for it to finish, since it changes the library.

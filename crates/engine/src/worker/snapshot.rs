@@ -27,6 +27,9 @@ impl State {
             }
             sync = current;
         }
+        if library.is_some() {
+            sync.device = self.device_name()?;
+        }
         let (scan, scanning) = self.scans.current()?;
         let updates = match &library {
             Some(library) => self.updates.current(&library.library.skills)?,

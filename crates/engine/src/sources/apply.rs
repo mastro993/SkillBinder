@@ -127,6 +127,7 @@ impl State {
             skill,
             &fetched,
             Record::of(&fetched, Some(source.clone())),
+            Reason::Updated,
             staging,
         )?;
         self.updates.current_with(skill.id.clone(), source, tree);
@@ -160,16 +161,17 @@ impl State {
             tree: skill.recorded.clone(),
             source: skill.source.clone(),
         };
-        self.replace(skill, &restored, record, staging)
+        self.replace(skill, &restored, record, Reason::Reinstalled, staging)
     }
 
-    /// Replaces `skill`'s content with `content` and its record with `record`, in one journaled
-    /// change; content already in place moves nothing.
+    /// Replaces `skill`'s content with `content` and its record with `record`, for `reason`, in
+    /// one journaled change; content already in place moves nothing.
     fn replace(
         &mut self,
         skill: &Skill,
         content: &Inspection,
         record: Record,
+        reason: Reason,
         staging: &Path,
     ) -> AppResult<()> {
         let slug = skill.id.as_str();
@@ -206,6 +208,7 @@ impl State {
             outcome: None,
             records,
             held: Vec::new(),
+            reasons: vec![(slug.to_owned(), reason)],
         })
     }
 }

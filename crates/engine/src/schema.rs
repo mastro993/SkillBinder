@@ -130,3 +130,12 @@ diesel::table! {
         ignored_at -> BigInt,
     }
 }
+
+diesel::table! {
+    pending_changes (slug) {
+        slug -> Text,
+        reason -> Text,
+        detail -> Nullable<Text>,
+        at -> Text,
+    }
+}

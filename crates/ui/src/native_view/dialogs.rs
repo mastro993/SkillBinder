@@ -60,11 +60,12 @@ impl NativeView {
                 })
             });
             // The dialog takes focus as it opens; the picker hands it to its search, Add repository
-            // to its URL, and Change branch to its branch.
+            // to its URL, Change branch to its branch, and Rename this device to its name.
             let field = match &self.dialog {
                 DialogState::AddSkill(picker) => Some(&picker.search),
                 DialogState::AddRepository(add) => Some(&add.input),
                 DialogState::ChangeBranch => Some(&self.remote_branch),
+                DialogState::RenameDevice => Some(&self.device_name),
                 _ => None,
             };
             if let Some(field) = field {
@@ -168,6 +169,7 @@ impl NativeView {
                 self.applications_menu_dialog(dialog, *failed, cx)
             }
             DialogState::ChangeBranch => self.change_branch_dialog(dialog, cx),
+            DialogState::RenameDevice => self.rename_device_dialog(dialog, cx),
             DialogState::Disconnect => self.disconnect_dialog(dialog, cx),
         }
     }

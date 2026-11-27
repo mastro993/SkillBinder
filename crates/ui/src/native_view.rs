@@ -151,6 +151,8 @@ enum DialogState {
     },
     /// The Sync page's Change branch…, which reads the remote's branch field.
     ChangeBranch,
+    /// The Sync page's Rename this device…, which reads the device name field.
+    RenameDevice,
     /// The Sync page's Disconnect…, which asks before the device stops syncing.
     Disconnect,
     None,
@@ -272,6 +274,7 @@ pub struct NativeView {
     workspace_name: Entity<InputState>,
     remote_url: Entity<InputState>,
     remote_branch: Entity<InputState>,
+    device_name: Entity<InputState>,
     _search_subscription: Subscription,
     _preset_name_subscription: Subscription,
     _folder_name_subscription: Subscription,

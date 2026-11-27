@@ -376,6 +376,11 @@ impl Client {
         self.refresh_preserving_outcome(self.shared.engine.connect_remote(remote).await)
             .await
     }
+    /// Renames this device; commits Push or Sync makes from now on carry the new name.
+    pub async fn rename_device(&self, name: String) -> AppResult<()> {
+        self.refresh_preserving_outcome(self.shared.engine.rename_device(name).await)
+            .await
+    }
     /// Performs the synchronization or remote refresh the user asked for, publishing it as
     /// `syncing` while it runs.
     pub async fn synchronize(&self, action: SyncAction) -> AppResult<SyncSnapshot> {

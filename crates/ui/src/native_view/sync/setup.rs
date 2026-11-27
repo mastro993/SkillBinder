@@ -111,7 +111,11 @@ fn column(title: &'static str, line: &'static str, cx: &App) -> gpui_kit::Statef
 }
 
 /// A field labeled `label` over its input, as wide as the column.
-fn field(label: &'static str, input: &Entity<InputState>, disabled: bool) -> impl IntoElement {
+pub(super) fn field(
+    label: &'static str,
+    input: &Entity<InputState>,
+    disabled: bool,
+) -> impl IntoElement {
     v_flex()
         .w_full()
         .gap(px(space::XS))

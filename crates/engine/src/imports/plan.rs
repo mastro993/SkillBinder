@@ -19,13 +19,14 @@ use std::collections::{BTreeMap, BTreeSet};
 /// How long a prepared plan can be applied.
 const PLAN_LIFETIME: u64 = 300;
 
-/// One planned skill: its row, the inspection it imports, where it was published, and where it
-/// becomes active.
+/// One planned skill: its row, the inspection it imports, where it was published, where it
+/// becomes active, and the agent or workspace it was found in.
 struct Planned {
     item: ImportItem,
     source: Inspection,
     origin: Option<SkillSource>,
     placement: placement::Placement,
+    found_in: Option<String>,
 }
 
 /// What planning reads of the library: the slugs and contents it holds, and where a new skill
@@ -96,6 +97,9 @@ impl State {
         if let Some(placement) = prepared.placements.get_mut(index) {
             *placement = planned.placement;
         }
+        if let Some(found_in) = prepared.found_in.get_mut(index) {
+            *found_in = planned.found_in;
+        }
         prepared.review.id = PlanId::new();
         self.store(&prepared)?;
         Ok(prepared.review)
@@ -116,6 +120,7 @@ impl State {
             sources: Vec::new(),
             origins: Vec::new(),
             placements: Vec::new(),
+            found_in: Vec::new(),
         };
         for found in &selected {
             if let Some(planned) = planner.plan(found)? {
@@ -123,6 +128,7 @@ impl State {
                 prepared.sources.push(planned.source);
                 prepared.origins.push(planned.origin);
                 prepared.placements.push(planned.placement);
+                prepared.found_in.push(planned.found_in);
             }
         }
         self.store(&prepared)?;
@@ -241,7 +247,36 @@ impl Planner {
             origin: crate::sources::lock::source(&source.locks, &inspection.slug),
             source: inspection,
             placement,
+            found_in: self.found_in(found),
         }))
+    }
+
+    /// The name of an agent whose global skill directory held `found`, or "Universal" for the
+    /// directory several agents share, as the app names them; else of a workspace whose scan
+    /// found it.
+    fn found_in(&self, found: &Selected) -> Option<String> {
+        let agent = self
+            .agents
+            .iter()
+            .find(|agent| found.agents.contains(&agent.id))
+            .map(|agent| {
+                let dir = &agent.global_skills_dir;
+                let sharing = self
+                    .agents
+                    .iter()
+                    .filter(|other| &other.global_skills_dir == dir);
+                if dir.is_some() && sharing.count() > 1 {
+                    "Universal".to_owned()
+                } else {
+                    agent.display_name.clone()
+                }
+            });
+        agent.or_else(|| {
+            self.workspaces
+                .iter()
+                .find(|workspace| found.workspaces.contains(&workspace.id))
+                .map(|workspace| workspace.name.clone())
+        })
     }
 }
 

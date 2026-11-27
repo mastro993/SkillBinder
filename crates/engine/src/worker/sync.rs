@@ -2,10 +2,13 @@
 
 use super::{Engine, State, action::Action};
 use crate::{
+    git::Committer,
     logging::{Area, Level},
+    pending_changes,
     reconcile::RECONCILED_HEAD,
 };
 use skillbinder_proto::*;
+use std::collections::BTreeMap;
 
 impl Engine {
     /// Validates and fetches a remote before saving its configuration.
@@ -42,6 +45,13 @@ impl Engine {
         })
         .await
     }
+    /// Renames this device; commits Push or Sync makes from now on carry the new name.
+    pub async fn rename_device(&self, name: String) -> AppResult<()> {
+        self.action(Action::RenameDevice, Vec::new(), |engine| async move {
+            engine.call(move |state| state.rename_device(&name)).await
+        })
+        .await
+    }
 }
 
 impl State {
@@ -56,11 +66,7 @@ impl State {
         let current = matches!(action, SyncAction::Push)
             && git.revision(&repo, "HEAD").ok()
                 == Some(self.setting::<Option<String>>(RECONCILED_HEAD)?.flatten());
-        // Pending records are committed only when nothing was pulled: written after a pull, they
-        // would replace pulled records with this device's older ones before reconciling.
-        let result = git.perform_with(&repo, remote.as_ref(), action, &|| {
-            self.write_pending_records()
-        });
+        let result = git.perform_with(&repo, remote.as_ref(), action, &Commits(self));
         // A Push only commits what the database already holds. A Pull or Sync, including one
         // that fast-forwarded before its push failed, reconciles what moved.
         let caught_up = match action {
@@ -108,5 +114,25 @@ impl State {
         }
         self.set_setting("sync", &snapshot)?;
         Ok(snapshot)
+    }
+}
+
+/// How the library's commits name this device and say why each skill changed.
+struct Commits<'a>(&'a State);
+
+impl Committer for Commits<'_> {
+    /// Pending records are committed only when nothing was pulled: written after a pull, they
+    /// would replace pulled records with this device's older ones before reconciling.
+    fn prepare(&self) -> AppResult<()> {
+        self.0.write_pending_records()
+    }
+    fn device(&self) -> AppResult<String> {
+        self.0.device_name()
+    }
+    fn reasons(&self) -> AppResult<BTreeMap<String, Reason>> {
+        pending_changes::reasons(&mut self.0.database.borrow_mut())
+    }
+    fn committed(&self) -> AppResult<()> {
+        pending_changes::clear(&mut self.0.database.borrow_mut())
     }
 }

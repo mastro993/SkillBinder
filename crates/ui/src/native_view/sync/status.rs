@@ -131,7 +131,8 @@ impl NativeView {
         ));
     }
 
-    /// Pull only and Push only; the remote's URL, web page, and branch; and Disconnect… (Y4).
+    /// Pull only and Push only; the remote's URL, web page, and branch, and this device's name;
+    /// and Disconnect… (Y4).
     fn sync_menu(&self, cx: &mut Context<Self>) -> Vec<MenuItem> {
         let view = cx.entity().downgrade();
         let sync = &self.snapshot.sync;
@@ -184,6 +185,20 @@ impl NativeView {
                     cx.notify();
                 },
             ));
+        let device = self.snapshot.sync.device.clone();
+        let rename = MenuItem::new("sync-rename-device", "Rename this device…")
+            .icon("laptop")
+            .on_select(menu_action(
+                view.clone(),
+                device,
+                |view, device, window, cx| {
+                    view.device_name.update(cx, |input, cx| {
+                        input.set_value(device.clone(), window, cx);
+                    });
+                    view.show_dialog(DialogState::RenameDevice);
+                    cx.notify();
+                },
+            ));
         let disconnect = MenuItem::new("sync-disconnect", "Disconnect…")
             .icon("unplug")
             .danger()
@@ -194,7 +209,7 @@ impl NativeView {
         [pull, push, MenuItem::separator(), copy]
             .into_iter()
             .chain(browse)
-            .chain([branch, MenuItem::separator(), disconnect])
+            .chain([branch, rename, MenuItem::separator(), disconnect])
             .collect()
     }
 }
@@ -221,8 +236,9 @@ fn tile(glyph: &'static str, tint: Tint, cx: &App) -> impl IntoElement {
         .child(icon(glyph).with_size(IconSize::Lg).text_color(ink))
 }
 
-/// The remote's facts under the status: where it is and which branch syncs (Y3).
-pub(super) fn facts(remote: &RemoteConfig, cx: &App) -> impl IntoElement {
+/// The remote's facts under the status: where it is, which branch syncs, and this device's name
+/// (Y3).
+pub(super) fn facts(remote: &RemoteConfig, device: &str, cx: &App) -> impl IntoElement {
     let address = remote.address();
     let host = if address.starts_with("github.com/") {
         "github"
@@ -246,4 +262,5 @@ pub(super) fn facts(remote: &RemoteConfig, cx: &App) -> impl IntoElement {
         .px(px(space::XXS))
         .child(fact("sync-remote", host, address))
         .child(fact("sync-branch", "git-branch", remote.branch.clone()))
+        .child(fact("sync-device", "laptop", device.to_owned()))
 }
