@@ -74,7 +74,7 @@ sequenceDiagram
   end
 ```
 
-- **Proto** (decisions 1, 5): `UpdateReview { id, source, from, to, files: Vec<ReviewedFile>, patch }` where `from` is the library content's digest and `to` is the fetched tree. `ReviewedFile { path, change: Added | Changed | Removed, additions, deletions, shown: Lines | Binary { before, after } | TooLarge | PastCap }`. `ReviewedUpdate { id, from, to }`, and `ReviewedOutcome::{Updated(UpdateOutcome), Moved { moved: Source | Library, review }}`, `moved` choosing R9's notice. These are typed contracts with no I/O, in `crates/proto/src/update_review.rs`.
+- **Proto** (decisions 1, 5): `UpdateReview { id, source, from, to, drifted, files: Vec<ReviewedFile>, patch }` where `from` is the library content's digest, `to` is the fetched tree, and `drifted` says the library content's tree differs from the skill's record when the review is built (R8). `ReviewedFile { path, change: Added | Changed | Removed, additions, deletions, shown: Lines | Binary { before, after } | TooLarge | PastCap }`. `ReviewedUpdate { id, from, to }`, and `ReviewedOutcome::{Updated(UpdateOutcome), Moved { moved: Source | Library, review }}`, `moved` choosing R9's notice. These are typed contracts with no I/O, in `crates/proto/src/update_review.rs`.
 - **Engine** (behaviors 1–5): a new `crates/engine/src/sources/review.rs`.
   - `State::review_update(id)` reuses `update_skill`'s fetch, `checkout`, and `refusal`, and returns the review.
   - `State::update_reviewed(reviewed)` refactors `apply.rs`'s `update_skill` so that the checkout is compared with `from` and `to` before `replace`. A mismatch builds the review from the same checkout, with no second fetch.
