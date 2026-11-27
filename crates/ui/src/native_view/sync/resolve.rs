@@ -210,19 +210,29 @@ fn side_card(
         .cursor_pointer()
         .on_click(pick)
         .child(
-            v_flex()
-                .gap(px(space::XXS))
+            h_flex()
+                .items_start()
+                .gap(px(space::SM))
                 .child(
                     Radio::new(SharedString::from(format!("{id}-radio")))
                         .checked(checked)
-                        .label(name)
+                        .accessibility_label(name.clone())
                         .small()
                         .on_click(move |_, _, cx| radio_pick(cx)),
                 )
                 .child(
-                    Text::labeled(SharedString::from(format!("{id}-detail")), detail)
-                        .level(text::CAPTION)
-                        .muted(),
+                    v_flex()
+                        .min_w_0()
+                        .gap(px(space::XXS))
+                        .child(
+                            Text::labeled(SharedString::from(format!("{id}-name")), name)
+                                .level(text::LABEL_MD),
+                        )
+                        .child(
+                            Text::labeled(SharedString::from(format!("{id}-detail")), detail)
+                                .level(text::CAPTION)
+                                .muted(),
+                        ),
                 ),
         )
         .into_any_element()
