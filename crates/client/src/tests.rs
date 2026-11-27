@@ -5,7 +5,7 @@ use std::{collections::BTreeSet, path::Path};
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
 /// An engine in `directory`, onboarded with an empty library.
-async fn ready(directory: &Path) -> AppResult<Engine> {
+pub(crate) async fn ready(directory: &Path) -> AppResult<Engine> {
     let config = EngineConfig::isolated(directory.join("data"), directory.join("home"));
     let log = Logger::open_session(&config)?;
     let engine = Engine::open(config, log)?;

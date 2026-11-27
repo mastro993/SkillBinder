@@ -43,6 +43,7 @@ pub struct MenuItem {
     checked: Option<bool>,
     disabled: bool,
     danger: bool,
+    tooltip: Option<SharedString>,
     kind: Kind,
 }
 
@@ -77,6 +78,7 @@ impl MenuItem {
             checked: None,
             disabled: false,
             danger: false,
+            tooltip: None,
             kind: Kind::Action(None),
         }
     }
@@ -110,6 +112,12 @@ impl MenuItem {
     /// Dims the row and keeps the pointer and the keyboard from choosing it.
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
+        self
+    }
+
+    /// Explains the row in a tooltip while the pointer rests on it, such as why it is disabled.
+    pub fn tooltip(mut self, text: impl Into<SharedString>) -> Self {
+        self.tooltip = Some(text.into());
         self
     }
 

@@ -79,7 +79,8 @@ impl NativeView {
         let workspace_name = cx.new(|cx| InputState::new(window, cx).placeholder("Workspace name"));
         let workspace_name_subscription =
             cx.subscribe_in(&workspace_name, window, Self::workspace_name_event);
-        let remote_url = cx.new(|cx| InputState::new(window, cx).placeholder("Remote URL"));
+        let remote_url =
+            cx.new(|cx| InputState::new(window, cx).placeholder("git@github.com:you/skills.git"));
         let remote_branch = cx.new(|cx| {
             InputState::new(window, cx)
                 .placeholder("Branch")

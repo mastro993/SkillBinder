@@ -1,6 +1,6 @@
 # Sync page: status, changes not synced yet, History, and per-skill resolution
 
-ADRs: [0038](../adr/0038-sync-history-is-the-librarys-git-history.md), [0039](../adr/0039-sync-merges-per-skill.md), [0040](../adr/0040-restore-and-discard-add-changes.md). Design: [docs/design/sync](../design/sync/README.md) (decisions Y1–Y13). Glossary: [domain.md](../agents/domain.md). Its Sync entry, and the new entries below, change in the slices that ship them, since the glossary documents shipped behavior. Builds on [Synchronization](../features/native/sync-and-durability.md) and the [command line](command-line.md).
+ADRs: [0038](../adr/0038-sync-history-is-the-librarys-git-history.md), [0039](../adr/0039-sync-merges-per-skill.md), [0040](../adr/0040-restore-and-discard-add-changes.md). Design: [docs/design/sync](../design/sync/README.md) (decisions Y1–Y13). Glossary: [domain-sync.md](../agents/domain-sync.md). Its Sync entry, and the new entries below, change in the slices that ship them, since the glossary documents shipped behavior. Builds on [Synchronization](../features/native/sync-and-durability.md) and the [command line](command-line.md).
 
 ## Problem
 

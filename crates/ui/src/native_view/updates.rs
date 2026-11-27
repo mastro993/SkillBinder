@@ -31,6 +31,8 @@ pub(super) enum Effect {
     MoveFailed,
     /// Adding SkillBinder to the applications menu failed, so its dialog says so.
     ApplicationsMenuFailed,
+    /// A Git operation finished, so a toast says where it went.
+    Toast(String),
 }
 
 impl NativeView {
@@ -196,6 +198,7 @@ impl NativeView {
                     Effect::ApplicationsMenuFailed => {
                         self.dialog = DialogState::ApplicationsMenu { failed: true };
                     }
+                    Effect::Toast(message) => self.show_toast(message, cx),
                 }
                 // A dialog the operation closed makes room for copies that now ask.
                 self.prompt_copies();

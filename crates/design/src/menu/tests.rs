@@ -3,14 +3,14 @@
 use super::{MenuItem, OpenMenu, SUBMENU_CLOSE_DELAY, step};
 use gpui_kit::test::{TestSupportExt, TestWindowExt};
 use gpui_kit::{
-    AnyElement, AnyWindowHandle, App, AppContext, Bounds, Context, FocusHandle, FrameObserver,
-    InteractiveElement, IntoElement, KeyBinding, MouseButton, MouseDownEvent, ParentElement,
-    Render, StatefulInteractiveElement, Styled, Subscription, TestAppContext, WeakEntity, Window,
-    WindowBounds, WindowOptions, div, px, size,
+    AccessibilityFrame, AnyElement, AnyWindowHandle, App, AppContext, Bounds, Context, FocusHandle,
+    FrameObserver, InteractiveElement, IntoElement, KeyBinding, MouseButton, MouseDownEvent,
+    ParentElement, Render, StatefulInteractiveElement, Styled, Subscription, TestAppContext,
+    WeakEntity, Window, WindowBounds, WindowOptions, div, px, size,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 gpui_kit::actions!(
     test,
@@ -56,7 +56,8 @@ struct Sidebar {
 }
 
 /// Rename; a Color submenu of Gray, Red, and Blue, with Blue checked, then Custom, whose panel
-/// picks "custom"; an Icon panel picking "pick"; Move Up, disabled; Move Down; and Delete…, a
+/// picks "custom"; an Icon panel picking "pick"; Move Up, disabled, with a tooltip saying why;
+/// Move Down; and Delete…, a
 /// danger row. A panel's content picks with a click or Enter.
 fn items(
     log: &Log,
@@ -98,6 +99,7 @@ fn items(
         MenuItem::new("move-up", "Move Up")
             .icon("arrow-up")
             .disabled(true)
+            .tooltip("Already first")
             .on_select(on("move-up")),
         MenuItem::new("move-down", "Move Down")
             .icon("arrow-down")
@@ -194,14 +196,22 @@ impl Render for Sidebar {
 }
 
 /// Turns on the window's accessibility tree, which panics in debug builds when two elements
-/// claim focus, or two rows claim the highlight, in one frame.
-struct Accessibility;
-impl FrameObserver for Accessibility {}
+/// claim focus, or two rows claim the highlight, in one frame, and keeps the last one, which
+/// holds what draws outside the view, such as a tooltip.
+#[derive(Default)]
+struct Accessibility(Mutex<Option<Arc<AccessibilityFrame>>>);
+impl FrameObserver for Accessibility {
+    fn accessibility_frame(&self, frame: &Arc<AccessibilityFrame>) {
+        if let Ok(mut last) = self.0.lock() {
+            *last = Some(frame.clone());
+        }
+    }
+}
 
 struct Harness {
     handle: AnyWindowHandle,
     sidebar: gpui_kit::Entity<Sidebar>,
-    _accessibility: Arc<Accessibility>,
+    accessibility: Arc<Accessibility>,
 }
 
 impl Harness {
@@ -249,11 +259,11 @@ impl Harness {
                 )
             })
             .unwrap_or_else(|error| panic!("open test window: {error}"));
-        let accessibility = Arc::new(Accessibility);
+        let accessibility = Arc::new(Accessibility::default());
         let harness = Self {
             handle,
             sidebar,
-            _accessibility: accessibility.clone(),
+            accessibility: accessibility.clone(),
         };
         // Focus events only reach an active window.
         harness.step(cx, move |window, _| {
@@ -299,6 +309,12 @@ impl Harness {
         let mut shown = false;
         self.check(cx, |window| shown = window.try_find(id).is_some());
         shown
+    }
+
+    /// Whether the last frame drew `id`, wherever it drew it.
+    fn draws(&self, id: &str) -> bool {
+        let frame = self.accessibility.0.lock().ok().and_then(|f| f.clone());
+        frame.is_some_and(|frame| crate::test_window::node(&frame, id).is_some())
     }
 
     fn open(&self, cx: &mut TestAppContext) {

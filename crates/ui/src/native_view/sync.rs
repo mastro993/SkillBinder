@@ -1,111 +1,68 @@
+//! The Sync page (Y1): while a remote is set, the status with one next action and the remote's
+//! facts under it; otherwise the setup column, or what to do without Git (Y10).
+
+mod copy;
+mod dialogs;
+mod setup;
+mod status;
+
 use super::{Effect, NativeView};
-use gpui_kit::component::input::Input;
-use gpui_kit::{Context, IntoElement, ParentElement, Styled, div, px};
+use gpui_kit::component::v_flex;
+use gpui_kit::{AnyElement, Context, InteractiveElement, IntoElement, ParentElement, Styled, px};
+use skillbinder_design::sync::COLUMN;
 use skillbinder_design::tokens::space;
-use skillbinder_design::{Button, KeyValueList};
 use skillbinder_proto::*;
 
 impl NativeView {
-    /// Runs one Git operation; the client shows it as syncing until it returns.
+    /// Runs one Git operation, which the client shows as syncing until it returns. Push, Pull,
+    /// and Sync end with a toast naming the remote (Y7), and Disconnect closes its dialog. A
+    /// check that fails shows on the page as Unreachable, not as an error.
     pub(super) fn synchronize(&mut self, action: SyncAction, cx: &mut Context<Self>) {
         if self.blocked() {
             return;
         }
         let client = self.client.clone();
+        let address = self
+            .snapshot
+            .sync
+            .remote
+            .as_ref()
+            .map(RemoteConfig::address);
         self.run(
-            async move { client.synchronize(action).await.map(|_| Effect::None) },
+            async move {
+                match client.synchronize(action).await {
+                    Ok(_) => Ok(match address.and_then(|at| copy::done(action, &at)) {
+                        Some(done) => Effect::Toast(done),
+                        None if action == SyncAction::Disconnect => Effect::CloseDialog,
+                        None => Effect::None,
+                    }),
+                    Err(_)
+                        if action == SyncAction::Refresh
+                            && client.snapshot().sync.last_error.is_some() =>
+                    {
+                        Ok(Effect::None)
+                    }
+                    Err(error) => Err(error),
+                }
+            },
             cx,
         );
     }
 
-    pub(super) fn render_sync(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
-        let page = div().flex().flex_col().gap(px(space::XL));
+    pub(super) fn render_sync(&mut self, cx: &mut Context<Self>) -> AnyElement {
         if self.git_missing() {
-            return page.child("Sync needs Git.");
+            return self.sync_needs_git(cx);
         }
-        let sync = &self.snapshot.sync;
-        let status = format!(
-            "{:?} · {} ahead · {} behind{}",
-            sync.state,
-            sync.ahead,
-            sync.behind,
-            if sync.uncommitted {
-                " · local changes"
-            } else {
-                ""
-            }
-        );
-        let mut facts = KeyValueList::new("sync-facts").row("Status", status);
-        if let Some(remote) = &sync.remote {
-            facts = facts
-                .mono("Remote", remote.url.clone())
-                .row("Branch", remote.branch.clone());
-            if let Some(refreshed) = sync.refreshed_at {
-                facts = facts.row("Last checked", refreshed.to_string());
-            }
-        }
-        let mut page = page.child(facts);
-        if sync.remote.is_some() {
-            for (action, label, id, enabled) in [
-                (SyncAction::Refresh, "Refresh", "sync-refresh", true),
-                (
-                    SyncAction::Pull,
-                    "Pull",
-                    "sync-pull",
-                    sync.state == SyncState::NeedsPull && !sync.uncommitted,
-                ),
-                (
-                    SyncAction::Push,
-                    "Push",
-                    "sync-push",
-                    sync.state == SyncState::NeedsPush,
-                ),
-                (
-                    SyncAction::Sync,
-                    "Sync",
-                    "sync-now",
-                    sync.state != SyncState::Synced,
-                ),
-                (
-                    SyncAction::Disconnect,
-                    "Disconnect",
-                    "sync-disconnect",
-                    true,
-                ),
-            ] {
-                page = page.child(
-                    Button::new(id)
-                        .label(label)
-                        .inactive(self.working() || !enabled)
-                        .on_click(cx.listener(move |view, _, _, cx| view.synchronize(action, cx))),
-                );
-            }
-        } else {
-            page = page
-                .child("Connect a Git remote to synchronize the managed library.")
-                .child(Input::new(&self.remote_url))
-                .child(Input::new(&self.remote_branch))
-                .child(
-                    Button::new("sync-connect")
-                        .label("Connect remote")
-                        .primary()
-                        .inactive(self.working())
-                        .on_click(cx.listener(|view, _, _, cx| {
-                            let url = Self::input_text(&view.remote_url, cx);
-                            let branch = Self::input_text(&view.remote_branch, cx);
-                            let client = view.client.clone();
-                            view.run(
-                                async move {
-                                    client
-                                        .connect_remote(RemoteConfig { url, branch })
-                                        .await
-                                        .map(|_| Effect::None)
-                                },
-                                cx,
-                            );
-                        })),
-                );
-        }
-        page
+        let Some(remote) = self.snapshot.sync.remote.clone() else {
+            return self.sync_setup(cx);
+        };
+        v_flex()
+            .id("sync-page")
+            .w_full()
+            .max_w(px(COLUMN))
+            .gap(px(space::MD))
+            .children(self.sync_status(cx))
+            .child(status::facts(&remote, cx))
+            .into_any_element()
     }
 }

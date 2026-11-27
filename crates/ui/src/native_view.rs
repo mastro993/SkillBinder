@@ -149,6 +149,10 @@ enum DialogState {
     ApplicationsMenu {
         failed: bool,
     },
+    /// The Sync page's Change branch…, which reads the remote's branch field.
+    ChangeBranch,
+    /// The Sync page's Disconnect…, which asks before the device stops syncing.
+    Disconnect,
     None,
 }
 

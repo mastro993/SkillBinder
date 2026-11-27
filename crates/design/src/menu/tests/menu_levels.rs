@@ -24,6 +24,13 @@ fn choosing_a_row_closes_the_menu_and_runs_it(cx: &mut TestAppContext) {
     });
     harness.step(cx, |window, cx| window.click("menu-item-move-up", cx));
     assert!(harness.shows(cx, "menu"));
+    // Resting on it says why, once the pointer comes back after the click hid its tooltip.
+    harness.step(cx, |window, cx| window.hover("menu-item-rename", cx));
+    harness.step(cx, |window, cx| window.hover("menu-item-move-up", cx));
+    cx.executor()
+        .advance_clock(std::time::Duration::from_secs(1));
+    harness.step(cx, |_, _| {});
+    assert!(harness.draws("tooltip-popup"));
 
     assert_eq!(harness.log(cx), ["rename", "move-down", "delete"]);
 }

@@ -1,5 +1,8 @@
+use crate::AppError;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
+mod address;
 
 /// A validated remote and branch selected by the user.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -24,6 +27,8 @@ pub enum SyncState {
     NeedsPush,
     /// Local and remote work require explicit synchronization or resolution.
     NeedsSync,
+    /// The last check of the remote failed; `last_error` says why.
+    Unreachable,
 }
 /// Immutable synchronization status.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -41,8 +46,17 @@ pub struct SyncSnapshot {
     /// Number of managed paths with uncommitted changes.
     #[serde(default)]
     pub changed_files: u64,
+    /// Number of skills this device changed since the remote's commit, by slug.
+    #[serde(default)]
+    pub local_skills: u64,
+    /// Number of skills the remote changed since this device's commit, by slug.
+    #[serde(default)]
+    pub incoming_skills: u64,
     /// Last successful fetch as Unix seconds.
     pub refreshed_at: Option<u64>,
+    /// Why the last check of the remote failed, until a check or an operation reaches it.
+    #[serde(default)]
+    pub last_error: Option<AppError>,
 }
 /// An explicitly requested synchronization operation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

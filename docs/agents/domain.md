@@ -51,8 +51,7 @@ Generate `docs/supported-agents.md` with `cargo run -p xtask -- registry`. Verif
 - The catalog is the curated list of creators and their skills that SkillBinder publishes and the app fetches and caches. Explore shows the catalog, the skills in your repositories, and, during a search, skills.sh's results. A creator is a GitHub owner whose repositories the catalog lists, such as anthropics. Trending ranks the catalog's skills by installs gained over the last 7 days.
 - A repository, in Explore, is a Git repository the user added by URL to browse and install its skills. Repositories are machine-local and never sync, and removing one never touches skills installed from it. A repository is not a skill's source, though installing from it records it in the skill's source. Install all installs every skill of one repository that is not in library.
 - A library skill installed on this device is New until it is first activated anywhere or its page is opened. New is machine-local; imported skills and skills that arrive through Pull are never New.
-- Sync and Push are explicit actions that may commit library changes. Imports and installs remain uncommitted until those actions. Organization changes are never committed.
 
-The app's own terms, such as app updates, the menu bar menu, the command line tool, and the SkillBinder skill, are in [domain-app.md](domain-app.md). Plugins' terms are in [domain-plugins.md](domain-plugins.md).
+The app's own terms, such as app updates, the menu bar menu, the command line tool, and the SkillBinder skill, are in [domain-app.md](domain-app.md). Plugins' terms are in [domain-plugins.md](domain-plugins.md), and Sync's in [domain-sync.md](domain-sync.md).
 
 Expand this vocabulary only when a domain type or an accepted behavior introduces a term.

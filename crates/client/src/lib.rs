@@ -20,6 +20,7 @@ mod imports;
 mod mcp_clients;
 mod onboarding;
 mod progress;
+mod sync_checks;
 mod update_all;
 
 /// How long a source check holds before the next refresh checks the skill again.
@@ -61,6 +62,7 @@ impl Client {
         client.spawn_catalog(Duration::ZERO);
         client.start_app_update_checks();
         client.start_source_checks();
+        client.start_sync_checks(sync_checks::SYNC_CHECK_INTERVAL);
         Ok(client)
     }
     /// Returns the latest complete projection without blocking on storage.
@@ -228,7 +230,7 @@ impl Client {
     /// Refreshes the app in the background, on launch and when the window regains focus: looks
     /// for Git while none was found, making the library a repository once Git is, scans the
     /// agents' global skill directories and every workspace, then refreshes the remote's Git
-    /// status.
+    /// status, which shows a failure on the Sync page rather than as an error.
     /// The scan's completion checks the sources not checked within the hour.
     /// A running scan is kept rather than replaced, so frequent focus changes cannot keep a slow
     /// scan from completing.
@@ -248,8 +250,8 @@ impl Client {
             if let Err(error) = client.refresh_preserving_outcome(scanned).await {
                 client.background_error(error);
             }
-            if remote && let Err(error) = client.synchronized(SyncAction::Refresh).await {
-                client.background_error(error);
+            if remote {
+                client.check_remote().await;
             }
         });
     }
