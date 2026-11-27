@@ -19,6 +19,7 @@ serde.workspace = true
 serde_json.workspace = true
 sha1_smol.workspace = true
 sha2.workspace = true
+similar.workspace = true
 uuid.workspace = true
 directories.workspace = true
 dunce.workspace = true
@@ -40,6 +41,8 @@ rustix.workspace = true
 winsafe.workspace = true
 
 [dev-dependencies]
+# Tests that GPUI Kit's `Diff` reads back every patch shape the review builds.
+gpui-kit.workspace = true
 minisign.workspace = true
 
 [lints]

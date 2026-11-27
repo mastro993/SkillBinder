@@ -40,21 +40,16 @@ impl State {
             }
         }
         for skill in selected {
-            match self.staged(|state, staging| state.update_skill(&git, skill, staging)) {
+            let updated = self.staged(|state, staging| {
+                let (source, fetched) = state.fetch_update(&git, skill, staging)?;
+                state.land_update(skill, source, &fetched, staging)
+            });
+            match updated {
                 Ok(()) => outcome.updated.push(skill.id.clone()),
                 // A failure the journal could not undo stops every later change.
                 Err(error) if self.recovery_required => return Err(error),
-                // Only the message reaches the user, so the error is logged here.
                 Err(error) => {
-                    self.log
-                        .failure(
-                            Level::Error,
-                            Area::Update,
-                            ("skill update failed", "skill update stopped at quit"),
-                            &error,
-                        )
-                        .field("slug", skill.id.as_str());
-                    self.updates.failed(skill, error.message);
+                    self.update_failed(skill, error);
                     outcome.failed.push(skill.id.clone());
                 }
             }
@@ -96,10 +91,10 @@ impl State {
     }
 
     /// Runs `work` with a fresh staging directory, removed afterwards unless recovery needs it.
-    pub(super) fn staged(
+    pub(super) fn staged<T>(
         &mut self,
-        work: impl FnOnce(&mut Self, &Path) -> AppResult<()>,
-    ) -> AppResult<()> {
+        work: impl FnOnce(&mut Self, &Path) -> AppResult<T>,
+    ) -> AppResult<T> {
         let staging = self
             .config
             .data_dir
@@ -112,30 +107,67 @@ impl State {
         result
     }
 
-    fn update_skill(&mut self, git: &Git, skill: &Skill, staging: &Path) -> AppResult<()> {
+    /// Records why updating `skill` failed, which only reaches the user as its message, so the
+    /// error is logged here.
+    pub(super) fn update_failed(&mut self, skill: &Skill, error: AppError) {
+        self.log
+            .failure(
+                Level::Error,
+                Area::Update,
+                ("skill update failed", "skill update stopped at quit"),
+                &error,
+            )
+            .field("slug", skill.id.as_str());
+        self.updates.failed(skill, error.message);
+    }
+
+    /// Fetches `skill`'s source and checks its folder out under `staging`, refusing content an
+    /// update cannot put in the library.
+    pub(super) fn fetch_update(
+        &self,
+        git: &Git,
+        skill: &Skill,
+        staging: &Path,
+    ) -> AppResult<(SkillSource, Inspection)> {
         let source = skill
             .source
             .clone()
             .filter(|source| !source.pinned())
             .ok_or_else(|| AppError::validation("This skill has no source to update from."))?;
-        let slug = skill.id.as_str();
         let cache = cache_dir(&self.config.data_dir, CacheUser::Update, &source);
         git.fetch_source(&cache, &source)?;
-        let fetched = checkout(git, &cache, &source, &staging.join("source"), slug)?
-            .ok_or_else(|| AppError::not_found(GONE))?;
+        let fetched = checkout(
+            git,
+            &cache,
+            &source,
+            &staging.join("source"),
+            skill.id.as_str(),
+        )?
+        .ok_or_else(|| AppError::not_found(GONE))?;
         if let Some(why) = refusal(&fetched) {
             return Err(AppError::validation(why.update_text()));
         }
-        let tree = fetched.tree.clone();
+        Ok((source, fetched))
+    }
+
+    /// Replaces `skill`'s content with `fetched`, from `source`, and records it current.
+    pub(super) fn land_update(
+        &mut self,
+        skill: &Skill,
+        source: SkillSource,
+        fetched: &Inspection,
+        staging: &Path,
+    ) -> AppResult<()> {
         self.replace(
-            slug,
+            skill.id.as_str(),
             Some(skill),
-            &fetched,
-            Some(Record::of(&fetched, Some(source.clone()))),
+            fetched,
+            Some(Record::of(fetched, Some(source.clone()))),
             Some(Reason::Updated),
             staging,
         )?;
-        self.updates.current_with(skill.id.clone(), source, tree);
+        self.updates
+            .current_with(skill.id.clone(), source, fetched.tree.clone());
         Ok(())
     }
 

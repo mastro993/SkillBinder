@@ -75,6 +75,7 @@ const POLICY: &[(&str, &[&str], &[&str])] = &[
             "serde_json",
             "sha1_smol",
             "sha2",
+            "similar",
             "skillbinder-proto",
             "tempfile",
             "time",
@@ -88,7 +89,8 @@ const POLICY: &[(&str, &[&str], &[&str])] = &[
             "winsafe",
             "yaml-rust2",
         ],
-        &["minisign"],
+        // gpui-kit reads back the patches update reviews build, as the window does.
+        &["gpui-kit", "minisign"],
     ),
     (
         "skillbinder-proto",

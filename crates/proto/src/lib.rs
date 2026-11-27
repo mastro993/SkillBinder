@@ -15,6 +15,7 @@ mod repository;
 mod scan;
 mod skills_sh;
 mod sync;
+mod update_review;
 mod workspaces;
 
 pub use activation::*;
@@ -31,6 +32,7 @@ pub use repository::*;
 pub use scan::*;
 pub use skills_sh::*;
 pub use sync::*;
+pub use update_review::*;
 pub use workspaces::*;
 
 use serde::{Deserialize, Serialize};

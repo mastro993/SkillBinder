@@ -1,5 +1,6 @@
-//! The engine's skill source operations: update checks on their own thread, Update, Reinstall,
-//! and Sync's Restore and Discard, which replace a skill's content the same way.
+//! The engine's skill source operations: update checks on their own thread, Update and its
+//! review, Reinstall, and Sync's Restore and Discard, which replace a skill's content the same
+//! way.
 
 use super::{
     Engine,
@@ -81,6 +82,25 @@ impl Engine {
         let subject = vec![("slugs", list(&ids))];
         self.action(Action::UpdateSkills, subject, |engine| async move {
             engine.call(move |state| state.update_skills(ids)).await
+        })
+        .await
+    }
+    /// What updating skill `id` from its source would change, writing nothing (ADR 0037).
+    pub async fn review_update(&self, id: SkillId) -> AppResult<UpdateReview> {
+        let subject = vec![("slug", id.to_string())];
+        self.action(Action::ReviewUpdate, subject, |engine| async move {
+            engine.call(move |state| state.review_update(id)).await
+        })
+        .await
+    }
+    /// Updates a reviewed skill while its source and library content are still what the review
+    /// showed, else returns the changes now.
+    pub async fn update_reviewed(&self, reviewed: ReviewedUpdate) -> AppResult<ReviewedOutcome> {
+        let subject = vec![("slug", reviewed.id.to_string())];
+        self.action(Action::UpdateReviewed, subject, |engine| async move {
+            engine
+                .call(move |state| state.update_reviewed(reviewed))
+                .await
         })
         .await
     }
