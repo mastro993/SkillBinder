@@ -5,18 +5,12 @@
 use super::super::{DialogState, Effect, NativeView};
 use super::copy;
 use gpui_kit::component::dialog::Dialog;
-use gpui_kit::component::{ActiveTheme, Sizable, h_flex, radio::Radio, v_flex};
-use gpui_kit::{
-    AnyElement, App, Context, InteractiveElement, IntoElement, ParentElement, SharedString,
-    StatefulInteractiveElement, Styled, div, px,
-};
-use skillbinder_design::tokens::{color, radius, space, text};
-use skillbinder_design::{Button, DialogFooter, DialogHeader, DialogSize, Text};
+use gpui_kit::component::{h_flex, v_flex};
+use gpui_kit::{Context, IntoElement, ParentElement, SharedString, Styled, px};
+use skillbinder_design::tokens::{space, text};
+use skillbinder_design::{Button, DialogFooter, DialogHeader, DialogSize, SelectTile, Text};
 use skillbinder_proto::{Conflict, RemoteConfig, Side, SyncAction};
-use std::{collections::BTreeMap, rc::Rc};
-
-/// Chooses one side of a skill changed on both, from its card or its radio.
-type Pick = Rc<dyn Fn(&mut App)>;
+use std::collections::BTreeMap;
 
 /// The side chosen for each skill changed on both sides, by slug, for the conflicts it was made
 /// for.
@@ -147,10 +141,16 @@ impl NativeView {
             let (name, detail) = copy::side_card(side, version, device, now);
             let (slug, weak) = (conflict.slug.clone(), weak.clone());
             let id = format!("sync-resolve-{}-{}", conflict.slug, side.word());
-            let pick: Pick = Rc::new(move |cx: &mut App| {
-                let _ = weak.update(cx, |view, cx| view.choose_side(&slug, side, cx));
-            });
-            side_card(id, (name, detail), chosen == Some(side), pick, cx)
+            SelectTile::radio(id.clone(), name)
+                .detail(
+                    Text::labeled(format!("{id}-detail"), detail)
+                        .level(text::CAPTION)
+                        .muted(),
+                )
+                .selected(chosen == Some(side))
+                .on_select(move |_, cx| {
+                    let _ = weak.update(cx, |view, cx| view.choose_side(&slug, side, cx));
+                })
         };
         let (local, remote) = (card(Side::Local), card(Side::Remote));
         v_flex()
@@ -163,7 +163,7 @@ impl NativeView {
                 .level(text::LABEL_MD),
             )
             .child(
-                // Both cards stretch to the taller one, so their outlines line up.
+                // Both tiles stretch to the taller one, so their outlines line up.
                 h_flex()
                     .items_stretch()
                     .gap(px(space::SM))
@@ -171,61 +171,4 @@ impl NativeView {
                     .child(remote),
             )
     }
-}
-
-/// One side's radio card: whose version it is over its why and time, outlined in the accent
-/// while chosen.
-fn side_card(
-    id: String,
-    (name, detail): (String, String),
-    checked: bool,
-    pick: Pick,
-    cx: &App,
-) -> AnyElement {
-    let theme = cx.theme();
-    let (fill, border) = if checked {
-        (color::ACCENT_SOFT.of(theme), theme.primary)
-    } else {
-        (theme.background, theme.border)
-    };
-    let radio_pick = pick.clone();
-    let pick = move |_: &gpui_kit::ClickEvent, _: &mut gpui_kit::Window, cx: &mut App| pick(cx);
-    div()
-        .id(SharedString::from(id.clone()))
-        .flex_1()
-        .min_w_0()
-        .p(px(space::MD))
-        .rounded(px(radius::MD))
-        .border_1()
-        .border_color(border)
-        .bg(fill)
-        .cursor_pointer()
-        .on_click(pick)
-        .child(
-            h_flex()
-                .items_start()
-                .gap(px(space::SM))
-                .child(
-                    Radio::new(SharedString::from(format!("{id}-radio")))
-                        .checked(checked)
-                        .accessibility_label(name.clone())
-                        .small()
-                        .on_click(move |_, _, cx| radio_pick(cx)),
-                )
-                .child(
-                    v_flex()
-                        .min_w_0()
-                        .gap(px(space::XXS))
-                        .child(
-                            Text::labeled(SharedString::from(format!("{id}-name")), name)
-                                .level(text::LABEL_MD),
-                        )
-                        .child(
-                            Text::labeled(SharedString::from(format!("{id}-detail")), detail)
-                                .level(text::CAPTION)
-                                .muted(),
-                        ),
-                ),
-        )
-        .into_any_element()
 }

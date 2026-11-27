@@ -5,11 +5,9 @@
 use super::super::super::NativeView;
 use super::super::super::controls::{agent_detail, agent_logo, reader_logo};
 use super::super::super::library_copies::{AgentRow, Reader, shown_dir};
-use super::super::tile::Tile;
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{AnyElement, Context, IntoElement};
-use skillbinder_design::{AvatarStack, Logo};
-use std::rc::Rc;
+use skillbinder_design::{AvatarStack, Logo, SelectTile};
 
 /// How many of Universal's members its logo stack shows.
 const MEMBERS: usize = 3;
@@ -45,19 +43,14 @@ impl NativeView {
             Reader::Universal(_) => "onboarding-agents-universal".to_owned(),
             Reader::Agent(id) => format!("onboarding-agent-{id}"),
         };
-        let dir = row.dir.clone();
-        let tile = Tile {
-            detail: Some(agent_detail(format!("{id}-detail"), detail, mono, cx)),
-            id,
-            name: row.name.clone().into(),
-            logo: logo.into_any_element(),
-            chosen,
-            corner: None,
-        };
-        self.tile(
-            tile,
-            Some(Rc::new(move |view, cx| view.toggle_agent(&dir, cx))),
-            cx,
-        )
+        let (dir, view) = (row.dir.clone(), cx.entity().downgrade());
+        SelectTile::checkbox(id.clone(), row.name.clone())
+            .media(logo)
+            .detail(agent_detail(format!("{id}-detail"), detail, mono, cx))
+            .selected(chosen)
+            .on_select(move |_, cx| {
+                let _ = view.update(cx, |view, cx| view.toggle_agent(&dir, cx));
+            })
+            .into_any_element()
     }
 }

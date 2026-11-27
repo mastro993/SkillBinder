@@ -11,7 +11,6 @@ pub(super) mod import;
 mod offers;
 #[cfg(test)]
 mod tests;
-mod tile;
 
 pub(super) use offers::Offers;
 

@@ -55,7 +55,7 @@ Rules every prototype in this folder obeys. Behavior comes from [the onboarding 
 - **P3** Choose your agents: C "Logo tiles" (tiles, two columns until P6; Universal spans the row with its members' logos). Kit has no selectable tile, so the tile is a new app element built from Kit pieces.
 - **P4** Settings › Agents: A "Switch list".
 - **P5** New agent notice: A "Corner card".
-- **P6** (second round, `prototypes/agents-layout.html`, after the native tiles clipped in their 312-point frame): D "Page scrolls, 3 columns", with tiles logo on top, the app's 16-point type, a 1-point outline, and 32 points above Continue.
+- **P6** (second round, `prototypes/agents-layout.html`, after the native tiles clipped in their 312-point frame): D "Page scrolls, 3 columns", with tiles logo on top, the app's 16-point type, a 1-point outline, and 32 points above Continue. On 2026-11-27 the user made the tiles the design system's select tile, shared with Sync's Resolve dialog: a chosen tile is outlined 2 points in primary instead of the foreground-mixed border.
 
 ## Rejected variants
 

@@ -4,7 +4,7 @@ use super::{section, wrap};
 use crate::tokens::space;
 use crate::{
     Button, CodeBlock, EmptyState, InlineNameField, KeyValueList, NameFieldSize, Notice,
-    NoticeSize, ScrollArea, SearchField, SectionHeader, SegmentedFilter, Status, Text,
+    NoticeSize, ScrollArea, SearchField, SectionHeader, SegmentedFilter, SelectTile, Status, Text,
 };
 use gpui_kit::component::input::InputState;
 use gpui_kit::{AnyElement, App, Div, Entity, IntoElement, ParentElement, Styled, Window, div, px};
@@ -23,7 +23,41 @@ pub(super) fn molecules(window: &mut Window, cx: &mut App) -> Vec<AnyElement> {
         section("EmptyState", empties()).into_any_element(),
         section("KeyValueList and CodeBlock", facts()).into_any_element(),
         section("ScrollArea and ScrollFades", scrolls()).into_any_element(),
+        section("SelectTile", tiles()).into_any_element(),
     ]
+}
+
+/// Checkbox tiles chosen and not, a radio pair, and a tile with a corner.
+fn tiles() -> Div {
+    let detail = |text: &'static str| Text::new(text).level(crate::tokens::text::CAPTION).muted();
+    fn pair(left: impl IntoElement, right: impl IntoElement) -> Div {
+        div()
+            .flex()
+            .items_stretch()
+            .gap(px(space::MD))
+            .child(left)
+            .child(right)
+    }
+    column()
+        .child(pair(
+            SelectTile::checkbox("gallery-tile-on", "Chosen")
+                .detail(detail("~/.claude/skills"))
+                .selected(true),
+            SelectTile::checkbox("gallery-tile-off", "Not chosen")
+                .detail(detail("~/.cursor/skills")),
+        ))
+        .child(pair(
+            SelectTile::radio("gallery-tile-here", "This device").detail(detail("Not pushed")),
+            SelectTile::radio("gallery-tile-there", "Laptop")
+                .detail(detail("Updated from its source · just now"))
+                .selected(true),
+        ))
+        .child(pair(
+            SelectTile::checkbox("gallery-tile-corner", "With a corner")
+                .selected(true)
+                .corner(Text::new("Connected")),
+            div().flex_1(),
+        ))
 }
 
 /// An input state the gallery keeps across frames.
