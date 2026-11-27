@@ -91,25 +91,50 @@ fn file(
     }
 }
 
-/// Writes the hunks from `before` to `after` into `patch`, each with the whole text as context,
-/// and returns the lines added and removed.
+/// Writes the change from `before` to `after` into `patch` as one hunk holding the whole text as
+/// context, and returns the lines added and removed. Lines end only at `\n`, as Kit reads them,
+/// so a stray `\r` stays inside its line.
 fn lines(before: &str, after: &str, old: &str, new: &str, patch: &mut String) -> (u64, u64) {
-    let diff = TextDiff::from_lines(before, after);
+    let (before, after): (Vec<&str>, Vec<&str>) = (
+        before.split_inclusive('\n').collect(),
+        after.split_inclusive('\n').collect(),
+    );
+    let diff = TextDiff::configure().diff_slices(&before, &after);
+    let mut body = String::new();
     let (mut additions, mut deletions) = (0, 0);
     for change in diff.iter_all_changes() {
-        match change.tag() {
-            ChangeTag::Insert => additions += 1,
-            ChangeTag::Delete => deletions += 1,
-            ChangeTag::Equal => {}
+        let sign = match change.tag() {
+            ChangeTag::Insert => {
+                additions += 1;
+                '+'
+            }
+            ChangeTag::Delete => {
+                deletions += 1;
+                '-'
+            }
+            ChangeTag::Equal => ' ',
+        };
+        let line = change.value();
+        body.push(sign);
+        body.push_str(line);
+        if !line.ends_with('\n') {
+            body.push_str("\n\\ No newline at end of file\n");
         }
     }
-    let context = before.lines().count().max(after.lines().count());
-    let _ = write!(
-        patch,
-        "{}",
-        diff.unified_diff().context_radius(context).header(old, new)
-    );
+    if additions + deletions > 0 {
+        let _ = write!(
+            patch,
+            "--- {old}\n+++ {new}\n@@ -{} +{} @@\n{body}",
+            range(before.len()),
+            range(after.len())
+        );
+    }
     (additions, deletions)
+}
+
+/// A hunk side's range covering all `count` lines of a file: `0,0` for none.
+fn range(count: usize) -> String {
+    format!("{},{count}", usize::from(count > 0))
 }
 
 /// A file's text, if Git would read it as text; an absent file's is empty.

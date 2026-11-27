@@ -134,3 +134,17 @@ fn identical_files_are_not_listed() {
     let same = side(&[("SKILL.md", "same\n", false)]);
     assert_eq!(build(&same, &same), (Vec::new(), String::new()));
 }
+
+#[test]
+fn a_bare_carriage_return_stays_inside_its_line() {
+    // Kit ends lines only at `\n`, so a stray `\r` must not end one in the patch.
+    let (files, _, _) = parsed(
+        &side(&[("notes.md", "a\rb\nkeep\n", false), ("z.md", "x\r", false)]),
+        &side(&[("notes.md", "a\rc\nkeep\n", false), ("z.md", "y\r", false)]),
+    );
+    let figures: Vec<_> = files
+        .iter()
+        .map(|file| (file.path.as_str(), file.additions, file.deletions))
+        .collect();
+    assert_eq!(figures, [("notes.md", 1, 1), ("z.md", 1, 1)]);
+}
