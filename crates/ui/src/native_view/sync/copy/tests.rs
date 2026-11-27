@@ -1,6 +1,26 @@
 use super::*;
 use skillbinder_proto::{AppError, RemoteConfig};
 
+/// `count` changed skills, outside SkillBinder.
+fn changes(count: usize) -> Vec<ChangedSkill> {
+    (0..count)
+        .map(|n| ChangedSkill {
+            slug: format!("skill-{n}"),
+            kind: ChangeKind::Changed,
+            reason: Some(Reason::Outside),
+        })
+        .collect()
+}
+
+/// `count` skills incoming from `devices`.
+fn incoming(devices: &[&str], count: usize) -> Option<Incoming> {
+    Some(Incoming {
+        devices: devices.iter().map(|d| (*d).to_owned()).collect(),
+        at: None,
+        skills: changes(count),
+    })
+}
+
 const NOW: i64 = 1_800_000_000;
 
 fn now() -> DateTime<Utc> {
@@ -37,11 +57,13 @@ fn shown(sync: &SyncSnapshot) -> (&'static str, Tint, String, String, Option<Syn
 #[test]
 fn each_state_shows_its_glyph_title_line_and_one_next_action() {
     let mut push = sync(SyncState::NeedsPush, 0);
-    push.local_skills = 3;
+    push.local = changes(3);
     let mut pull = sync(SyncState::NeedsPull, 0);
-    pull.incoming_skills = 1;
+    pull.incoming = incoming(&["MacBook Air"], 1);
     let mut both = sync(SyncState::NeedsSync, 0);
-    (both.local_skills, both.incoming_skills) = (3, 2);
+    (both.local, both.incoming) = (changes(3), incoming(&["MacBook Air", "Studio"], 2));
+    let mut unnamed = sync(SyncState::NeedsPull, 0);
+    unnamed.incoming = incoming(&[], 2);
     let mut unreachable = sync(SyncState::Unreachable, 7_200);
     unreachable.last_error = Some(AppError::validation("Could not resolve host."));
     let s = str::to_owned;
@@ -71,7 +93,17 @@ fn each_state_shows_its_glyph_title_line_and_one_next_action() {
             (
                 "download",
                 Tint::Accent,
-                s("1 skill changed on the remote"),
+                s("1 skill changed on MacBook Air"),
+                s("Not pulled yet"),
+                Some(SyncAction::Pull),
+            ),
+        ),
+        (
+            unnamed,
+            (
+                "download",
+                Tint::Accent,
+                s("2 skills changed on the remote"),
                 s("Not pulled yet"),
                 Some(SyncAction::Pull),
             ),
@@ -82,7 +114,7 @@ fn each_state_shows_its_glyph_title_line_and_one_next_action() {
                 "git-merge",
                 Tint::Accent,
                 s("Changes on both sides"),
-                s("3 here, 2 from the remote"),
+                s("3 here, 2 from MacBook Air and 1 more"),
                 Some(SyncAction::Sync),
             ),
         ),
@@ -149,4 +181,74 @@ fn actions_read_as_they_run_and_end_with_a_toast_naming_the_remote() {
         assert_eq!(running(action), running_label);
         assert_eq!(done(action, remote).as_deref(), toast);
     }
+}
+
+#[test]
+fn each_skill_says_how_and_why_it_changed() {
+    let why_of = |kind, reason| {
+        why(&ChangedSkill {
+            slug: "review".to_owned(),
+            kind,
+            reason,
+        })
+    };
+    let from = Some("Claude Code".to_owned());
+    for (kind, reason, expected) in [
+        (
+            ChangeKind::Added,
+            Some(Reason::Imported { from }),
+            Some("Imported from Claude Code"),
+        ),
+        (
+            ChangeKind::Added,
+            Some(Reason::Imported { from: None }),
+            Some("Imported"),
+        ),
+        (
+            ChangeKind::Added,
+            Some(Reason::Installed),
+            Some("Installed from Explore"),
+        ),
+        (
+            ChangeKind::Changed,
+            Some(Reason::Updated),
+            Some("Updated from its source"),
+        ),
+        (
+            ChangeKind::Changed,
+            Some(Reason::Reinstalled),
+            Some("Reinstalled"),
+        ),
+        (
+            ChangeKind::Changed,
+            Some(Reason::Record),
+            Some("Record added"),
+        ),
+        (
+            ChangeKind::Changed,
+            Some(Reason::Outside),
+            Some("Changed outside SkillBinder"),
+        ),
+        (
+            ChangeKind::Removed,
+            Some(Reason::Outside),
+            Some("Removed outside SkillBinder"),
+        ),
+        (ChangeKind::Removed, None, None),
+    ] {
+        assert_eq!(why_of(kind, reason).as_deref(), expected);
+    }
+    assert_eq!(kind(ChangeKind::Added), ("+", "Added", Tint::Success));
+    assert_eq!(kind(ChangeKind::Changed), ("~", "Changed", Tint::Accent));
+    assert_eq!(kind(ChangeKind::Removed), ("−", "Removed", Tint::Danger));
+}
+
+#[test]
+fn the_remote_s_group_says_when_its_newest_change_was_made() {
+    let mut pulled = incoming(&["MacBook Air"], 1).unwrap_or_default();
+    assert_eq!(not_pulled(&pulled, now()), "Not pulled");
+    pulled.at = Some(NOW.unsigned_abs() - 10);
+    assert_eq!(not_pulled(&pulled, now()), "Just now · Not pulled");
+    pulled.at = Some(NOW.unsigned_abs() - 7_200);
+    assert_eq!(not_pulled(&pulled, now()), "2 hours ago · Not pulled");
 }

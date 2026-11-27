@@ -3,8 +3,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 mod address;
+mod change;
 mod reason;
 
+pub use change::{ChangeKind, ChangedSkill, Incoming};
 pub use reason::Reason;
 
 /// A validated remote and branch selected by the user.
@@ -49,12 +51,13 @@ pub struct SyncSnapshot {
     /// Number of managed paths with uncommitted changes.
     #[serde(default)]
     pub changed_files: u64,
-    /// Number of skills this device changed since the remote's commit, by slug.
+    /// The skills this device changed since the commit it shares with the remote, which a Push
+    /// sends, added first, then changed, then removed, each by slug.
     #[serde(default)]
-    pub local_skills: u64,
-    /// Number of skills the remote changed since this device's commit, by slug.
+    pub local: Vec<ChangedSkill>,
+    /// What the remote changed since that commit, which a Pull brings, if it has any commit.
     #[serde(default)]
-    pub incoming_skills: u64,
+    pub incoming: Option<Incoming>,
     /// Last successful fetch as Unix seconds.
     pub refreshed_at: Option<u64>,
     /// Why the last check of the remote failed, until a check or an operation reaches it.

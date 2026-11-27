@@ -1,9 +1,9 @@
 //! The commit Push and Sync make of the managed files (ADR 0038), named by the device and saying
 //! why each skill changed.
 
-use super::note::{Kind, Note};
+use super::note::{self, Note};
 use super::{Git, MANAGED, record_of, skill_of};
-use skillbinder_proto::{AppResult, Reason};
+use skillbinder_proto::{AppResult, ChangeKind, Reason};
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::Path,
@@ -85,7 +85,7 @@ impl Git {
         head: Option<&str>,
         staged: &str,
         changed: &str,
-    ) -> AppResult<BTreeMap<String, Kind>> {
+    ) -> AppResult<BTreeMap<String, ChangeKind>> {
         let before = match head {
             Some(head) => self.skill_dirs(repo, head)?,
             None => BTreeSet::new(),
@@ -95,17 +95,13 @@ impl Git {
             .split('\0')
             .filter_map(|path| skill_of(path).or_else(|| record_of(path)))
             .map(|slug| {
-                let kind = match (before.contains(slug), after.contains(slug)) {
-                    (false, true) => Kind::Added,
-                    (true, true) => Kind::Changed,
-                    (_, false) => Kind::Removed,
-                };
+                let kind = note::kind(before.contains(slug), after.contains(slug));
                 (slug.to_owned(), kind)
             })
             .collect())
     }
     /// The skill directories in `tree`.
-    fn skill_dirs(&self, repo: &Path, tree: &str) -> AppResult<BTreeSet<String>> {
+    pub(super) fn skill_dirs(&self, repo: &Path, tree: &str) -> AppResult<BTreeSet<String>> {
         Ok(self
             .output(
                 repo,

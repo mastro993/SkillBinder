@@ -1,7 +1,7 @@
 //! The message of a commit Push or Sync makes (ADR 0038): a subject naming the device and each
 //! skill, one body line per skill saying why it changed, and trailers that other devices read.
 
-use skillbinder_proto::Reason;
+use skillbinder_proto::{ChangeKind as Kind, Reason};
 use std::collections::BTreeMap;
 
 /// The longest subject, in characters.
@@ -9,22 +9,33 @@ const SUBJECT: usize = 72;
 /// Characters Git drops around an author name; one made only of these is refused.
 const CRUD: &str = ".,:;<>\"\\'";
 
-/// How a commit changes a skill, by whether its directory is there before and after.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub(super) enum Kind {
-    Added,
-    Changed,
-    Removed,
+/// How a change treats a skill whose directory is there `before` and `after` it, or not.
+pub(super) fn kind(before: bool, after: bool) -> Kind {
+    match (before, after) {
+        (false, true) => Kind::Added,
+        (true, true) => Kind::Changed,
+        (_, false) => Kind::Removed,
+    }
 }
 
-impl Kind {
-    fn verb(self) -> &'static str {
-        match self {
-            Self::Added => "add",
-            Self::Changed => "update",
-            Self::Removed => "remove",
-        }
+fn verb(kind: Kind) -> &'static str {
+    match kind {
+        Kind::Added => "add",
+        Kind::Changed => "update",
+        Kind::Removed => "remove",
     }
+}
+
+/// The slug and reason a `SkillBinder-Skill` trailer's value records, the inverse of
+/// [`Note::trailers`].
+pub(super) fn skill_trailer(value: &str) -> Option<(String, Reason)> {
+    let (slug, rest) = value.trim().split_once(' ')?;
+    let (word, detail) = match rest.split_once(' ') {
+        Some((word, detail)) => (word, Some(detail.to_owned())),
+        None => (rest, None),
+    };
+    let slug = slug.replace("%20", " ").replace("%25", "%");
+    Some((slug, Reason::stored(word, detail)))
 }
 
 /// What a commit says: the device that made it, and each skill it changes and why.
@@ -58,7 +69,7 @@ impl Note {
         let parts: Vec<String> = self
             .skills
             .iter()
-            .map(|(slug, kind, _)| format!("{} {slug}", kind.verb()))
+            .map(|(slug, kind, _)| format!("{} {slug}", verb(*kind)))
             .collect();
         if parts.is_empty() {
             return format!("{head}start the library");
@@ -85,7 +96,7 @@ impl Note {
     pub(super) fn body(&self) -> String {
         self.skills
             .iter()
-            .map(|(slug, kind, reason)| format!("{} {slug}: {}", kind.verb(), why(reason, *kind)))
+            .map(|(slug, kind, reason)| format!("{} {slug}: {}", verb(*kind), why(reason, *kind)))
             .collect::<Vec<_>>()
             .join("\n")
     }
@@ -140,7 +151,7 @@ fn one_line(text: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{Kind, Note};
+    use super::{Kind, Note, skill_trailer};
     use skillbinder_proto::Reason;
     use std::collections::BTreeMap;
 
@@ -226,6 +237,40 @@ mod tests {
              SkillBinder-Skill: my%20notes outside\n\
              SkillBinder-Skill: old outside"
         );
+    }
+
+    #[test]
+    fn each_skill_trailer_reads_back_as_written() {
+        let reasons = [
+            (
+                "review",
+                Reason::Imported {
+                    from: Some("Claude Code".into()),
+                },
+            ),
+            ("my notes", Reason::Updated),
+            ("100%", Reason::Outside),
+        ];
+        let note = note(
+            "Studio Mac",
+            &reasons
+                .iter()
+                .map(|(s, _)| (*s, Kind::Changed))
+                .collect::<Vec<_>>(),
+            &reasons,
+        );
+        let read: BTreeMap<_, _> = note
+            .trailers()
+            .lines()
+            .filter_map(|line| line.strip_prefix("SkillBinder-Skill: "))
+            .filter_map(skill_trailer)
+            .collect();
+        let written: BTreeMap<_, _> = reasons
+            .iter()
+            .map(|(slug, reason)| ((*slug).to_owned(), reason.clone()))
+            .collect();
+        assert_eq!(read, written);
+        assert_eq!(skill_trailer("lonely"), None);
     }
 
     #[test]

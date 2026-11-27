@@ -104,7 +104,10 @@ impl Fixture {
 fn empty_remote_connect_never_commits_then_push_and_pull_work() {
     let f = Fixture::new();
     assert_eq!(
-        f.git.connect(&f.repo, &f.remote).unwrap().state,
+        f.git
+            .connect(&f.repo, &f.remote, &BTreeMap::new())
+            .unwrap()
+            .state,
         SyncState::NeedsPush
     );
     assert!(f.git.revision(&f.repo, "HEAD").unwrap().is_none());
@@ -112,7 +115,10 @@ fn empty_remote_connect_never_commits_then_push_and_pull_work() {
     f.peer();
     f.peer_commit("skills/demo/SKILL.md", "remote");
     assert_eq!(
-        f.git.status(&f.repo, Some(&f.remote), true).unwrap().state,
+        f.git
+            .status(&f.repo, Some(&f.remote), true, &BTreeMap::new())
+            .unwrap()
+            .state,
         SyncState::NeedsPull
     );
     f.git
@@ -347,7 +353,7 @@ fn fresh_library_connect_is_fetch_only_then_sync_adopts_remote() {
     f.git.initialize(&fresh).unwrap();
     fs::create_dir(fresh.join("skills")).unwrap();
     fs::write(fresh.join("notes.txt"), "local-only bytes").unwrap();
-    let status = f.git.connect(&fresh, &f.remote).unwrap();
+    let status = f.git.connect(&fresh, &f.remote, &BTreeMap::new()).unwrap();
     assert_eq!(status.behind, 1);
     assert!(f.git.revision(&fresh, "HEAD").unwrap().is_none());
     f.git
@@ -386,7 +392,7 @@ fn fresh_library_with_managed_payload_refuses_adoption() {
 #[test]
 fn connection_reconciles_origin_and_disconnect_removes_it() {
     let f = Fixture::new();
-    f.git.connect(&f.repo, &f.remote).unwrap();
+    f.git.connect(&f.repo, &f.remote, &BTreeMap::new()).unwrap();
     assert_eq!(
         f.git
             .output(
@@ -540,7 +546,10 @@ fn ignored_managed_changes_are_dirty_and_foreign_ignored_files_stay_local() {
     fs::write(f.repo.join(".git/info/exclude"), "*.txt\n").unwrap();
     fs::write(f.repo.join("skills/demo/new.txt"), "managed bytes").unwrap();
     fs::write(f.repo.join("private.txt"), "private bytes").unwrap();
-    let status = f.git.status(&f.repo, Some(&f.remote), false).unwrap();
+    let status = f
+        .git
+        .status(&f.repo, Some(&f.remote), false, &BTreeMap::new())
+        .unwrap();
     assert!(status.uncommitted);
     assert_eq!(status.changed_files, 1);
     f.push();
@@ -552,7 +561,7 @@ fn ignored_managed_changes_are_dirty_and_foreign_ignored_files_stay_local() {
     );
     assert!(
         !f.git
-            .status(&f.repo, Some(&f.remote), false)
+            .status(&f.repo, Some(&f.remote), false, &BTreeMap::new())
             .unwrap()
             .uncommitted
     );

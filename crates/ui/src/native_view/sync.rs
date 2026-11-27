@@ -1,8 +1,10 @@
-//! The Sync page (Y1): while a remote is set, the status with one next action and the remote's
-//! facts, with this device's name, under it; otherwise the setup column, or what to do without Git (Y10).
+//! The Sync page (Y1): while a remote is set, the status with one next action, the remote's
+//! facts, with this device's name, under it, and the skills not synced yet; otherwise the setup
+//! column, or what to do without Git (Y10).
 
 mod copy;
 mod dialogs;
+mod pending;
 mod setup;
 mod status;
 
@@ -63,6 +65,11 @@ impl NativeView {
             .gap(px(space::MD))
             .children(self.sync_status(cx))
             .child(status::facts(&remote, &self.snapshot.sync.device, cx))
+            .children(pending::pending(
+                &self.snapshot.sync,
+                chrono::Utc::now(),
+                cx,
+            ))
             .into_any_element()
     }
 }
