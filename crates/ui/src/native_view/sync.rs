@@ -1,12 +1,15 @@
 //! The Sync page (Y1): while a remote is set, the status with one next action, the remote's
-//! facts, with this device's name, under it, and the skills not synced yet; otherwise the setup
-//! column, or what to do without Git (Y10).
+//! facts, with this device's name, under it, the skills not synced yet, and History; otherwise
+//! the setup column, or what to do without Git (Y10).
 
 mod copy;
 mod dialogs;
+mod history;
 mod pending;
 mod setup;
 mod status;
+
+pub(super) use history::HistoryPages;
 
 use super::{Effect, NativeView};
 use gpui_kit::component::v_flex;
@@ -58,6 +61,7 @@ impl NativeView {
         let Some(remote) = self.snapshot.sync.remote.clone() else {
             return self.sync_setup(cx);
         };
+        self.follow_history(cx);
         v_flex()
             .id("sync-page")
             .w_full()
@@ -70,6 +74,7 @@ impl NativeView {
                 chrono::Utc::now(),
                 cx,
             ))
+            .children(self.sync_history(cx))
             .into_any_element()
     }
 }

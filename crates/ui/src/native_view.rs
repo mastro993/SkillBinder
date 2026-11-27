@@ -268,6 +268,8 @@ pub struct NativeView {
     found_flash: Option<ignore_actions::Flash>,
     /// The skill page's file read in flight; dropping it discards the read's result.
     skill_load: Option<Task<()>>,
+    /// The pages of the Sync page's History read so far.
+    sync_history: sync::HistoryPages,
     search: Entity<InputState>,
     preset_name: Entity<InputState>,
     folder_name: Entity<InputState>,

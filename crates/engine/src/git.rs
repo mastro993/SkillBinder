@@ -2,6 +2,7 @@
 mod adoption;
 mod commit;
 mod discovery;
+mod history;
 mod install;
 mod note;
 mod objects;
@@ -252,6 +253,7 @@ impl Git {
             last_error: None,
             // The engine names the device.
             device: String::new(),
+            head: local,
         })
     }
     fn reconcile_origin(&self, repo: &Path, remote: &RemoteConfig) -> AppResult<()> {

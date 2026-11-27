@@ -99,6 +99,7 @@ actions! {
     Sync => Sync, Change, "sync";
     Disconnect => Sync, Change, "disconnect";
     RenameDevice => Sync, Change, "device rename";
+    History => Sync, Detail, "history";
     RefreshCatalog => Explore, Job, "catalog refresh";
     ListRepository => Explore, Detail, "repository list";
     AddRepository => Explore, Change, "repository add";

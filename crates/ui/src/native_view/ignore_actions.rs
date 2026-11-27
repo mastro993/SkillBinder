@@ -24,7 +24,7 @@ pub(super) struct Flash {
 }
 
 impl Flash {
-    fn new(key: Option<String>) -> Self {
+    pub(super) fn new(key: Option<String>) -> Self {
         Self {
             key,
             id: FLASHES.fetch_add(1, Ordering::Relaxed),

@@ -23,7 +23,12 @@ pub(super) fn pending(sync: &SyncSnapshot, now: DateTime<Utc>, cx: &App) -> Opti
         .filter(|incoming| !incoming.skills.is_empty());
     let mut groups = Vec::new();
     if !sync.local.is_empty() {
-        let head = device("sync-local-device", Some(sync.device.clone()), true, cx);
+        let head = device(
+            "sync-local-device".into(),
+            Some(sync.device.clone()),
+            true,
+            cx,
+        );
         groups.push(group(
             "sync-local",
             head,
@@ -33,7 +38,12 @@ pub(super) fn pending(sync: &SyncSnapshot, now: DateTime<Utc>, cx: &App) -> Opti
         ));
     }
     if let Some(incoming) = incoming {
-        let head = device("sync-incoming-device", copy::devices(incoming), false, cx);
+        let head = device(
+            "sync-incoming-device".into(),
+            copy::devices(incoming),
+            false,
+            cx,
+        );
         let end = copy::not_pulled(incoming, now);
         groups.push(group("sync-incoming", head, end, &incoming.skills, cx));
     }
@@ -88,12 +98,12 @@ fn group(
         .id(id)
         .pb(px(space::XS))
         .child(head)
-        .children(skills.iter().map(|skill| row(id, skill, cx)))
+        .children(skills.iter().map(|skill| row(id, skill, None, cx)))
 }
 
 /// A device: the laptop glyph and its name in bold, with an outline "This device" tag for this
 /// one; a commit made before device names reads "Before device names" after a clock glyph.
-fn device(id: &'static str, name: Option<String>, this: bool, cx: &App) -> AnyElement {
+pub(super) fn device(id: SharedString, name: Option<String>, this: bool, cx: &App) -> AnyElement {
     let (glyph, name) = match name {
         Some(name) => ("laptop", name),
         None => ("clock", "Before device names".to_owned()),
@@ -106,7 +116,7 @@ fn device(id: &'static str, name: Option<String>, this: bool, cx: &App) -> AnyEl
                 .with_size(IconSize::Sm)
                 .text_color(icon_color(cx.theme())),
         )
-        .child(Text::labeled(id, name).level(text::LABEL_MD))
+        .child(Text::labeled(id.clone(), name).level(text::LABEL_MD))
         .when(this, |device| {
             device.child(Chip::new(ChipVariant::Outline).child(Text::labeled(
                 SharedString::from(format!("{id}-tag")),
@@ -116,8 +126,13 @@ fn device(id: &'static str, name: Option<String>, this: bool, cx: &App) -> AnyEl
         .into_any_element()
 }
 
-/// A skill: its kind mark, its slug in bold, and why it changed in muted text.
-fn row(group: &str, skill: &ChangedSkill, cx: &App) -> impl IntoElement {
+/// A skill: its kind mark, its slug in bold, why it changed in muted text, and `end` at its end.
+pub(super) fn row(
+    group: &str,
+    skill: &ChangedSkill,
+    end: Option<AnyElement>,
+    cx: &App,
+) -> impl IntoElement {
     let slug = &skill.slug;
     let theme = cx.theme();
     h_flex()
@@ -143,10 +158,11 @@ fn row(group: &str, skill: &ChangedSkill, cx: &App) -> impl IntoElement {
                     .muted(),
             )
         }))
+        .children(end.map(|end| div().ml_auto().flex_none().child(end)))
 }
 
 /// The 16-point kind mark, tinted by the kind and named by its tooltip.
-fn mark(group: &str, skill: &ChangedSkill, cx: &App) -> impl IntoElement {
+pub(super) fn mark(group: &str, skill: &ChangedSkill, cx: &App) -> impl IntoElement {
     let (glyph, label, tint) = copy::kind(skill.kind);
     let (fill, ink) = tinted(tint, cx.theme());
     div()

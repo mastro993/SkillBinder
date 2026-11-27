@@ -46,6 +46,23 @@ impl Engine {
         })
         .await
     }
+    /// A page of History: up to `limit` changes after the commit `before`, or the newest ones
+    /// without it. Without Git, or before the library's first commit, there are none.
+    pub async fn sync_history(
+        &self,
+        before: Option<String>,
+        limit: usize,
+    ) -> AppResult<SyncHistory> {
+        self.action(Action::History, Vec::new(), |engine| async move {
+            engine
+                .call(move |state| match &state.git {
+                    Some(git) => git.history(&state.library_dir(), before.as_deref(), limit),
+                    None => Ok(SyncHistory::default()),
+                })
+                .await
+        })
+        .await
+    }
     /// Renames this device; commits Push or Sync makes from now on carry the new name.
     pub async fn rename_device(&self, name: String) -> AppResult<()> {
         self.action(Action::RenameDevice, Vec::new(), |engine| async move {

@@ -181,7 +181,8 @@ pub(super) fn why(skill: &ChangedSkill) -> Option<String> {
     })
 }
 
-fn skills(count: usize) -> String {
+/// "1 skill" or "<n> skills".
+pub(super) fn skills(count: usize) -> String {
     match count {
         1 => "1 skill".to_owned(),
         count => format!("{count} skills"),
