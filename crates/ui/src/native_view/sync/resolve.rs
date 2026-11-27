@@ -163,8 +163,9 @@ impl NativeView {
                 .level(text::LABEL_MD),
             )
             .child(
+                // Both cards stretch to the taller one, so their outlines line up.
                 h_flex()
-                    .items_start()
+                    .items_stretch()
                     .gap(px(space::SM))
                     .child(local)
                     .child(remote),
