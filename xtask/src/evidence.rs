@@ -133,7 +133,8 @@ pub fn verify(root: &Path) -> anyhow::Result<()> {
     let artwork: Artwork = serde_json::from_slice(&read(&assets, "inventory.json")?)?;
     let mut glyphs = artwork.glyphs;
     for listing in glyph_listings(&assets)? {
-        glyphs.extend(serde_json::from_slice::<Vec<Glyph>>(&read(&assets, &listing)?)?);
+        let listed: Vec<Glyph> = serde_json::from_slice(&read(&assets, &listing)?)?;
+        glyphs.extend(listed);
     }
     verify_hash(&assets, &artwork.license_file, &artwork.license_sha256)?;
     for glyph in glyphs {
