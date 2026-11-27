@@ -95,7 +95,7 @@ A workspace is named by its name or by a folder inside it: `.` is the workspace 
 
 ## Updates and Sync
 
-`updates [--check]`, `update (<slug>… | --all)`, `reinstall`, `sync`, `push`, `pull`, and `remote set|remove` are in [Command line: updates and Sync](command-line-updates.md).
+`updates [--check]`, `update (<slug>… | --all)`, `reinstall`, `sync`, `push`, `pull`, `remote set|remove`, `sync status|history|restore|discard|resolve`, and `device rename` are in [Command line: updates and Sync](command-line-updates.md).
 
 ## Starting the app
 

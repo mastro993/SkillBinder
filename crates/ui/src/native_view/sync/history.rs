@@ -7,6 +7,8 @@
 mod choices;
 mod days;
 
+pub(crate) use days::{day, time};
+
 use super::super::NativeView;
 use super::super::ignore_actions::{Flash, flash_overlay};
 use super::super::sidebar_row::activate;
@@ -24,7 +26,7 @@ use skillbinder_proto::{AppError, AppResult, ChangeKind, ChangedSkill, SyncChang
 use std::collections::{BTreeMap, BTreeSet};
 
 /// How many changes a page holds (A3).
-const PAGE: usize = 50;
+pub(crate) const PAGE: usize = 50;
 
 /// The pages of History read so far, and which changes are open.
 #[derive(Default)]

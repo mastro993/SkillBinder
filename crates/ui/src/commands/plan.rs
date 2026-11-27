@@ -1,18 +1,19 @@
 //! A changing command resolved against the snapshot into the operations the window runs for it,
 //! before anything runs, so an unknown or ambiguous name changes nothing.
 
+mod copies;
 mod places;
 
 use super::resolve::{self, Agents};
 use super::{explore, repositories, sync, updates};
-use crate::native_view::{Activity, Places, held, shown_dir};
-use skillbinder_proto::command_line::{Change, CommandError, ErrorCode};
+use crate::native_view::{Activity, Places, held};
+use skillbinder_proto::command_line::{Change, CommandError};
 use skillbinder_proto::{
-    AddSkills, AppSnapshot, CopyChoice, CopyState, LibrarySnapshot, ManagedCopy,
-    OrganizationChange, Preset, PresetId, PresetSwitch, RemoteConfig, Repository, Skill, SkillId,
-    SyncAction, Targets, WorkspaceId,
+    AddSkills, AppSnapshot, CopyChoice, LibrarySnapshot, ManagedCopy, OrganizationChange, Preset,
+    PresetId, PresetSwitch, RemoteConfig, Repository, Side, Skill, SkillId, SyncAction, Targets,
+    WorkspaceId,
 };
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// What a changing command runs.
 #[derive(Debug)]
@@ -72,6 +73,14 @@ pub(super) enum Plan {
     Sync(SyncAction),
     /// Setting the sync remote.
     Connect(RemoteConfig),
+    /// Putting a skill back to its version in a History change.
+    Restore { skill: SkillId, commit: String },
+    /// Undoing this device's change to a skill not pushed yet.
+    Discard(SkillId),
+    /// A Sync keeping the chosen side of each skill changed on both sides.
+    Resolve(BTreeMap<String, Side>),
+    /// Renaming this device.
+    RenameDevice(String),
 }
 
 /// A change the window saves at once.
@@ -239,14 +248,14 @@ pub(super) fn plan(change: &Change, snapshot: &AppSnapshot) -> Result<Plan, Comm
                 done,
             }
         }
-        Change::ReplaceCopy { skill, directory } => copy(
+        Change::ReplaceCopy { skill, directory } => copies::copy(
             snapshot,
             library,
             skill,
             directory.as_deref(),
             CopyChoice::Replace,
         )?,
-        Change::KeepCopy { skill, directory } => copy(
+        Change::KeepCopy { skill, directory } => copies::copy(
             snapshot,
             library,
             skill,
@@ -294,9 +303,7 @@ pub(super) fn plan(change: &Change, snapshot: &AppSnapshot) -> Result<Plan, Comm
         Change::Update { skills } => updates::plan_update(snapshot, library, skills)?,
         Change::UpdateAll => updates::plan_update_all(snapshot)?,
         Change::Reinstall { skill } => updates::plan_reinstall(snapshot, library, skill)?,
-        Change::Synchronize { action } => sync::plan(snapshot, *action)?,
-        Change::SetRemote { url, branch } => sync::plan_set(snapshot, url, branch)?,
-        Change::RemoveRemote => sync::plan_remove(snapshot)?,
+        Change::Sync { sync: command } => sync::plan_change(snapshot, command)?,
     })
 }
 
@@ -432,73 +439,6 @@ fn activate(
         id: preset.id.clone(),
         name: preset.name.clone(),
         switch,
-    })
-}
-
-/// Answering `choice` for the copy of `slug` waiting in `directory`, or in its one directory.
-fn copy(
-    snapshot: &AppSnapshot,
-    library: &LibrarySnapshot,
-    slug: &str,
-    directory: Option<&str>,
-    choice: CopyChoice,
-) -> Result<Plan, CommandError> {
-    let skill = &resolve::skill(library, slug)?.id;
-    let answerable = |copy: &&ManagedCopy| match choice {
-        // A copy the user kept can still be replaced, as its skill page offers.
-        CopyChoice::Replace => copy.asks() || copy.state == CopyState::Skipped,
-        CopyChoice::Keep => copy.asks(),
-    };
-    let waiting: Vec<&ManagedCopy> = library
-        .copies
-        .iter()
-        .filter(|copy| &copy.skill == skill)
-        .filter(answerable)
-        .collect();
-    let home = &snapshot.home;
-    let copy = match (directory, waiting.as_slice()) {
-        (Some(directory), _) => resolve::one(
-            "directory",
-            directory,
-            waiting.iter().copied(),
-            |copy| shown_dir(&copy.directory, home),
-            |copy| vec![copy.directory.clone(), shown_dir(&copy.directory, home)],
-        )
-        .map_err(|error| CommandError {
-            message: format!("No copy of {skill} waits in {directory}."),
-            ..error
-        })?,
-        (None, [copy]) => copy,
-        (None, []) => {
-            return Err(CommandError::new(
-                ErrorCode::NotFound,
-                format!("No copy of {skill} waits for your answer."),
-            ));
-        }
-        (None, several) => {
-            let directories: Vec<String> = several
-                .iter()
-                .map(|copy| shown_dir(&copy.directory, home))
-                .collect();
-            return Err(CommandError::new(
-                ErrorCode::Ambiguous,
-                format!("{skill} waits in {}.", directories.join(", ")),
-            )
-            .hint("Name one with --in DIR."));
-        }
-    };
-    let directory = shown_dir(&copy.directory, home);
-    let done = match (choice, &copy.state) {
-        (CopyChoice::Replace, CopyState::Edited { active: false }) => {
-            format!("Removed your copy of {skill} from {directory}.")
-        }
-        (CopyChoice::Replace, _) => format!("Replaced your copy of {skill} in {directory}."),
-        (CopyChoice::Keep, _) => format!("Kept your copy of {skill} in {directory}."),
-    };
-    Ok(Plan::Copy {
-        copy: copy.clone(),
-        choice,
-        done,
     })
 }
 

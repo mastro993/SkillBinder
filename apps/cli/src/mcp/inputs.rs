@@ -9,7 +9,7 @@ pub(crate) use explore::{
     FindSkills, IgnoreSkills, ImportSkills, InstallSkills, ManageRepositories,
 };
 pub(crate) use places::{ChooseAgent, ManageWorkspace};
-pub(crate) use updates::{SyncLibrary, UpdateSkills, Updating};
+pub(crate) use updates::{Sending, SyncLibrary, UpdateSkills};
 
 use schemars::JsonSchema;
 use serde::Deserialize;

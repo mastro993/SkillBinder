@@ -1,13 +1,24 @@
 //! Sync from a terminal: `sync`, `push`, `pull`, and `remote set|remove`, as the Sync page's
-//! buttons and its remote setup run them. Each needs Git (spec rule 5).
+//! buttons and its remote setup run them, then what waits, History, Restore, Discard, Resolve…,
+//! and renaming this device. Each needs Git (spec rule 5), but for reading what waits and
+//! renaming.
+
+mod changes;
+mod reads;
+
+pub(super) use changes::{discard, rename_device, resolve_sync, restore};
+
+use changes::{plan_discard, plan_resolve, plan_restore};
+pub(super) use reads::{history, status};
 
 use super::plan::Plan;
 use super::run::{free, held, on_runtime};
 use super::updates::needs_git;
+use crate::native_view::skill_count;
 use gpui_kit::AsyncApp;
 use skillbinder_client::Client;
-use skillbinder_proto::command_line::{Changed, CommandError, ErrorCode, SyncKind};
-use skillbinder_proto::{AppSnapshot, RemoteConfig, SyncAction};
+use skillbinder_proto::command_line::{Changed, CommandError, ErrorCode, SyncCommand, SyncKind};
+use skillbinder_proto::{AppError, AppSnapshot, RemoteConfig, SyncAction, SyncSnapshot, SyncState};
 
 /// What the command names while `action` runs, such as `SkillBinder is busy: Pushing…`.
 pub(super) fn title(action: SyncAction) -> &'static str {
@@ -20,14 +31,31 @@ pub(super) fn title(action: SyncAction) -> &'static str {
     }
 }
 
-/// `sync`, `push`, or `pull`, which need a remote.
-pub(super) fn plan(snapshot: &AppSnapshot, kind: SyncKind) -> Result<Plan, CommandError> {
+/// The plan for one of the Sync page's changes.
+pub(super) fn plan_change(
+    snapshot: &AppSnapshot,
+    command: &SyncCommand,
+) -> Result<Plan, CommandError> {
+    match command {
+        SyncCommand::Run { action } => plan(snapshot, *action),
+        SyncCommand::SetRemote { url, branch } => plan_set(snapshot, url, branch),
+        SyncCommand::RemoveRemote => plan_remove(snapshot),
+        SyncCommand::Restore { skill, to } => plan_restore(snapshot, skill, to),
+        SyncCommand::Discard { skill } => plan_discard(snapshot, skill),
+        SyncCommand::Resolve { choices } => plan_resolve(snapshot, choices),
+        SyncCommand::RenameDevice { name } => Ok(Plan::RenameDevice(name.clone())),
+    }
+}
+
+/// `sync`, `push`, or `pull`, which need a remote. A Sync while skills changed on both sides
+/// needs a choice for each, which `sync resolve` makes (Design 11).
+fn plan(snapshot: &AppSnapshot, kind: SyncKind) -> Result<Plan, CommandError> {
     needs_git(snapshot)?;
-    if snapshot.sync.remote.is_none() {
-        return Err(
-            CommandError::new(ErrorCode::Usage, "No sync remote is set.")
-                .hint("Set one with `skillbinder remote set <url>`."),
-        );
+    connected(snapshot)?;
+    if kind == SyncKind::Sync
+        && let Some(refused) = needs_resolve(&snapshot.sync)
+    {
+        return Err(refused);
     }
     Ok(Plan::Sync(match kind {
         SyncKind::Sync => SyncAction::Sync,
@@ -36,12 +64,32 @@ pub(super) fn plan(snapshot: &AppSnapshot, kind: SyncKind) -> Result<Plan, Comma
     }))
 }
 
+/// Why a Sync is refused while skills changed on both sides, which need `sync resolve`.
+fn needs_resolve(sync: &SyncSnapshot) -> Option<CommandError> {
+    (sync.state == SyncState::NeedsResolve).then(|| {
+        CommandError::new(
+            ErrorCode::Usage,
+            format!(
+                "{} changed on both sides. Resolve them with `skillbinder sync resolve`.",
+                skill_count(sync.conflicts.len())
+            ),
+        )
+    })
+}
+
+/// Fails while no remote is set.
+fn connected(snapshot: &AppSnapshot) -> Result<(), CommandError> {
+    match snapshot.sync.remote {
+        Some(_) => Ok(()),
+        None => Err(
+            CommandError::new(ErrorCode::Usage, "No sync remote is set.")
+                .hint("Set one with `skillbinder remote set <url>`."),
+        ),
+    }
+}
+
 /// `remote set`, which replaces a remote already set.
-pub(super) fn plan_set(
-    snapshot: &AppSnapshot,
-    url: &str,
-    branch: &str,
-) -> Result<Plan, CommandError> {
+fn plan_set(snapshot: &AppSnapshot, url: &str, branch: &str) -> Result<Plan, CommandError> {
     needs_git(snapshot)?;
     Ok(Plan::Connect(RemoteConfig {
         url: url.to_owned(),
@@ -50,7 +98,7 @@ pub(super) fn plan_set(
 }
 
 /// `remote remove`: nothing to do with no remote set.
-pub(super) fn plan_remove(snapshot: &AppSnapshot) -> Result<Plan, CommandError> {
+fn plan_remove(snapshot: &AppSnapshot) -> Result<Plan, CommandError> {
     needs_git(snapshot)?;
     Ok(match snapshot.sync.remote {
         Some(_) => Plan::Sync(SyncAction::Disconnect),
@@ -73,9 +121,19 @@ pub(super) async fn synchronize(
     let synchronized = on_runtime(client, move |client| async move {
         client.synchronize(action).await
     });
-    held(cx, synchronized).await?;
+    let synchronized = held(cx, synchronized).await;
+    synchronized.map_err(|error| refused(action, &client.snapshot().sync, error))?;
     let url = remote.map_or_else(|| "the remote".to_owned(), |remote| remote.url);
     Ok(Changed::said(done(action, &url)))
+}
+
+/// A Sync's `error` as the command reports it: one that found skills changed on both sides,
+/// which the last check had not seen yet, refuses as a Sync it plans does.
+fn refused(action: SyncAction, sync: &SyncSnapshot, error: AppError) -> CommandError {
+    match action {
+        SyncAction::Sync => needs_resolve(sync).unwrap_or_else(|| error.into()),
+        _ => error.into(),
+    }
 }
 
 /// What `action` did with the remote at `url`.

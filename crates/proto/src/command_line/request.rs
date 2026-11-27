@@ -1,6 +1,7 @@
 //! What the command asks: one [`Request`] per connection, and an [`Answer`] for each question the
 //! app asks back. Names stay strings; the app resolves them against its own library.
 
+use super::SyncCommand;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -65,6 +66,8 @@ pub enum Query {
     /// `updates`: the skills with an update, as Library's Updates filter lists them, as of the
     /// last check.
     Updates,
+    /// `sync status`: the skills not synced yet on each side, and those changed on both.
+    SyncStatus,
 }
 
 /// A reading command that asks the engine before it answers.
@@ -82,6 +85,13 @@ pub enum Find {
     /// `updates --check`: checks every source now, as Check now does, then lists the skills
     /// with an update.
     Check,
+    /// `sync history`: a page of History, as the Sync page reads it.
+    History {
+        /// The commit the page starts after; none for the newest changes.
+        before: Option<String>,
+        /// The most changes the page holds; 50 when none.
+        limit: Option<usize>,
+    },
 }
 
 /// Library's filters, one at a time.
@@ -292,32 +302,12 @@ pub enum Change {
         /// The skill.
         skill: String,
     },
-    /// `sync`, `push`, or `pull`.
-    Synchronize {
-        /// Which of Sync's Git operations.
-        action: SyncKind,
+    /// `sync` and its subcommands, `push`, `pull`, `remote`, and `device rename`: the Sync
+    /// page's changes.
+    Sync {
+        /// Which of them.
+        sync: SyncCommand,
     },
-    /// `remote set`: connects the library to a Git remote, replacing the one set.
-    SetRemote {
-        /// The remote's Git URL.
-        url: String,
-        /// Its branch.
-        branch: String,
-    },
-    /// `remote remove`: disconnects the remote; the library stays as it is.
-    RemoveRemote,
-}
-
-/// One of Sync's Git operations on the library.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SyncKind {
-    /// Pulls what can fast-forward, then pushes the library's changes.
-    Sync,
-    /// Commits the library's changes and pushes them.
-    Push,
-    /// Fast-forwards to the remote's changes.
-    Pull,
 }
 
 /// A workspace as the command names it: by its name, or by a folder inside it, such as `.`.

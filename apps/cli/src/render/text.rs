@@ -1,6 +1,7 @@
 //! Each result as readable text, one fact per line.
 
 mod explore;
+mod sync;
 
 use skillbinder_proto::SyncState;
 use skillbinder_proto::command_line::{
@@ -32,6 +33,8 @@ pub(crate) fn output(output: &Output) -> String {
         Output::Search(search) => explore::search(search),
         Output::Repositories(rows) => explore::repositories(rows),
         Output::Updates(updates) => updates_text(updates),
+        Output::SyncStatus(status) => sync::status(status),
+        Output::History(history) => sync::history(history),
         Output::Changed(Changed { message, .. }) => format!("{message}\n"),
     }
 }
@@ -85,7 +88,16 @@ fn status_text(status: &StatusOutput) -> String {
     if *attention > 0 {
         text.push_str(&format!("Copies needing your answer: {attention}\n"));
     }
-    let sync = match sync {
+    text.push_str(&format!("Sync: {}\n", state(*sync)));
+    if let Some(running) = running {
+        text.push_str(&format!("Running: {running}…\n"));
+    }
+    text
+}
+
+/// Where the library stands with its remote, as `status` says it.
+fn state(state: SyncState) -> &'static str {
+    match state {
         SyncState::NotConfigured => "not set up",
         SyncState::Synced => "up to date",
         SyncState::NeedsPull => "needs pull",
@@ -93,12 +105,7 @@ fn status_text(status: &StatusOutput) -> String {
         SyncState::NeedsSync => "needs sync",
         SyncState::NeedsResolve => "skills changed on both sides",
         SyncState::Unreachable => "can't reach the remote",
-    };
-    text.push_str(&format!("Sync: {sync}\n"));
-    if let Some(running) = running {
-        text.push_str(&format!("Running: {running}…\n"));
     }
-    text
 }
 
 /// `pdf [update, new]: on for Claude Code; in invoices-app`, or `…: off`.

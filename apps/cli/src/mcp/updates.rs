@@ -2,12 +2,11 @@
 
 use super::Server;
 use super::call::Turn;
-use super::inputs::{Agreed, SyncLibrary, UpdateSkills, Updating};
+use super::inputs::{Agreed, ResponseFormat, Sending, SyncLibrary, UpdateSkills};
 use super::results;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::CallToolResponse;
 use rmcp::{ErrorData, tool, tool_router};
-use skillbinder_proto::command_line::Changed;
 
 #[tool_router(router = updates_router, vis = "pub(super)")]
 impl Server {
@@ -22,15 +21,15 @@ impl Server {
         turn: Turn,
     ) -> Result<CallToolResponse, ErrorData> {
         match input.request() {
-            Ok(Updating::Check(request)) => self.read(request, input.response_format, turn).await,
-            Ok(Updating::Change(change)) => self.change(Ok(change), Agreed::default(), turn).await,
+            Ok(Sending::Read(request)) => self.read(request, input.response_format, turn).await,
+            Ok(Sending::Change(change)) => self.change(Ok(change), Agreed::default(), turn).await,
             Err(error) => Ok(results::error(&error.into()).into()),
         }
     }
 
     #[tool(
-        description = "Syncs the library with its Git remote: sync pulls then pushes, push commits and pushes the library's changes, pull brings in the remote's; or sets or removes the remote.",
-        output_schema = results::schema::<Changed>(),
+        description = "Syncs the library with its Git remote: sync pulls then pushes, push commits and pushes the library's changes, pull brings in the remote's; or sets or removes the remote. status lists the skills not synced yet on each side and those changed on both, which sync refuses until resolve keeps mine or theirs of each. history lists the library's changes with the device that made each; restore puts a skill back to its version in one, and discard undoes this device's change not pushed yet. rename_device renames this device for the changes it pushes.",
+        output_schema = results::schema::<results::Synced>(),
         annotations(read_only_hint = false, destructive_hint = true, idempotent_hint = false, open_world_hint = true)
     )]
     async fn sync_library(
@@ -38,7 +37,10 @@ impl Server {
         Parameters(input): Parameters<SyncLibrary>,
         turn: Turn,
     ) -> Result<CallToolResponse, ErrorData> {
-        let change = input.change();
-        self.change(change, Agreed::default(), turn).await
+        match input.request() {
+            Ok(Sending::Read(request)) => self.read(request, ResponseFormat::default(), turn).await,
+            Ok(Sending::Change(change)) => self.change(Ok(change), Agreed::default(), turn).await,
+            Err(error) => Ok(results::error(&error.into()).into()),
+        }
     }
 }

@@ -78,6 +78,7 @@ pub(super) fn answer(query: &Query, snapshot: &AppSnapshot) -> Result<Output, Co
         ),
         Query::Repositories => Output::Repositories(repositories::repositories(snapshot)),
         Query::Updates => Output::Updates(updates::updates(snapshot, library)?),
+        Query::SyncStatus => Output::SyncStatus(Box::new(sync::status(snapshot))),
     })
 }
 

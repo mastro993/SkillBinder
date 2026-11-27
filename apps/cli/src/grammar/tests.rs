@@ -1,6 +1,7 @@
 use super::{grammar, request};
 use skillbinder_proto::command_line::{
-    Change, Consent, Find, Permission, Query, Request, SkillFilter, SyncKind, WorkspaceName,
+    Change, Consent, Find, Permission, Query, Request, SkillFilter, SyncCommand, SyncKind,
+    WorkspaceName,
 };
 
 fn parse(line: &[&str], interactive: bool) -> Request {
@@ -316,23 +317,37 @@ fn updates_and_sync_read_into_their_requests() {
         ("push", SyncKind::Push),
         ("pull", SyncKind::Pull),
     ] {
-        assert_eq!(change(&[line]), Change::Synchronize { action });
+        assert_eq!(
+            change(&[line]),
+            Change::Sync {
+                sync: SyncCommand::Run { action }
+            }
+        );
     }
     let url = "git@github.com:me/skills.git";
     assert_eq!(
         change(&["remote", "set", url]),
-        Change::SetRemote {
-            url: url.into(),
-            branch: "main".into()
+        Change::Sync {
+            sync: SyncCommand::SetRemote {
+                url: url.into(),
+                branch: "main".into()
+            }
         },
         "the branch defaults to main, as the Sync page's does"
     );
     assert_eq!(
         change(&["remote", "set", url, "--branch", "library"]),
-        Change::SetRemote {
-            url: url.into(),
-            branch: "library".into()
+        Change::Sync {
+            sync: SyncCommand::SetRemote {
+                url: url.into(),
+                branch: "library".into()
+            }
         }
     );
-    assert_eq!(change(&["remote", "remove"]), Change::RemoveRemote);
+    assert_eq!(
+        change(&["remote", "remove"]),
+        Change::Sync {
+            sync: SyncCommand::RemoveRemote
+        }
+    );
 }

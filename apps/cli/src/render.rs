@@ -55,6 +55,8 @@ pub(crate) fn result(output: &Output) -> Value {
         Output::Search(search) => json!(search),
         Output::Repositories(rows) => json!(rows),
         Output::Updates(updates) => json!(updates),
+        Output::SyncStatus(status) => json!(status),
+        Output::History(history) => json!(history),
         Output::Changed(changed) => json!(changed),
     }
 }

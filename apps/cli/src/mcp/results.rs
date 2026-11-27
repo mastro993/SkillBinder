@@ -9,9 +9,9 @@ use schemars::JsonSchema;
 use serde::Serialize;
 use serde_json::{Value, json};
 use skillbinder_proto::command_line::{
-    AgentRow, Changed, CopyRow, Failure, FolderRow, FoundOutput, FoundRow, Output, PresetRow,
-    RepositoryRow, SearchOutput, SearchRow, SkillRow, SkillsShAnswer, Unchecked, UpdatesOutput,
-    WorkspaceRow,
+    AgentRow, Changed, CopyRow, Failure, FolderRow, FoundOutput, FoundRow, HistoryOutput, Output,
+    PresetRow, RepositoryRow, SearchOutput, SearchRow, SkillRow, SkillsShAnswer, SyncStatusOutput,
+    Unchecked, UpdatesOutput, WorkspaceRow,
 };
 use std::sync::Arc;
 
@@ -92,6 +92,16 @@ pub(crate) struct Checked {
 #[expect(dead_code, reason = "only its schema is used")]
 pub(crate) enum Updates {
     Checked(Checked),
+    Changed(Changed),
+}
+
+/// sync_library's result: what waits to sync, a page of History, or what a change did.
+#[derive(JsonSchema)]
+#[serde(untagged)]
+#[expect(dead_code, reason = "only its schema is used")]
+pub(crate) enum Synced {
+    Status(SyncStatusOutput),
+    History(HistoryOutput),
     Changed(Changed),
 }
 
@@ -277,7 +287,11 @@ fn structured(output: Output, more: usize) -> Value {
             unchecked,
             more,
         }),
-        Output::Status(_) | Output::Skill(_) | Output::Changed(_) => render::result(&output),
+        Output::Status(_)
+        | Output::Skill(_)
+        | Output::SyncStatus(_)
+        | Output::History(_)
+        | Output::Changed(_) => render::result(&output),
     }
 }
 

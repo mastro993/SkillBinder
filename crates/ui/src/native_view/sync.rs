@@ -12,7 +12,9 @@ mod restore;
 mod setup;
 mod status;
 
+pub(crate) use copy::{kept, skills as skill_count, why, why_changed};
 pub(super) use history::HistoryPages;
+pub(crate) use history::{PAGE as HISTORY_PAGE, day as change_day, time as change_time};
 pub(super) use resolve::Choices;
 pub(super) use restore::Restoring;
 
