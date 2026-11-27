@@ -47,7 +47,7 @@ impl RenderOnce for Gallery {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let atoms = atoms::atoms(window, cx);
         let molecules = molecules::molecules(window, cx);
-        let organisms = organisms::organisms(cx);
+        let organisms = organisms::organisms(window, cx);
         let theme = cx.theme();
         let dark = theme.is_dark();
         let colors = THEME_COLORS

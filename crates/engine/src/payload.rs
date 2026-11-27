@@ -11,6 +11,7 @@ use crate::storage;
 use serde::{Deserialize, Serialize};
 use skillbinder_proto::{AppError, AppResult, ValidationMessage, ValidationStatus};
 use std::{
+    collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
 };
@@ -85,6 +86,12 @@ pub struct Inspection {
 /// inaccessible source roots return an error. Run outside the UI thread.
 pub fn inspect(path: &Path) -> AppResult<Inspection> {
     Ok(traversal::snapshot(path)?.inspection)
+}
+
+/// Inspects as [`inspect`] does, and also returns each file's bytes by its relative path.
+pub(crate) fn read(path: &Path) -> AppResult<(Inspection, BTreeMap<String, Vec<u8>>)> {
+    let snapshot = traversal::snapshot(path)?;
+    Ok((snapshot.inspection, snapshot.files))
 }
 
 /// Creates an absent destination from bounded in-memory bytes. Both source identity

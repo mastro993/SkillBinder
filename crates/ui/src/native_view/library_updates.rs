@@ -2,7 +2,7 @@
 //! the last update's result, and why a check or update failed.
 
 use super::without_git::{CHECK_NEEDS_GIT, needs_git};
-use super::{Effect, NativeView, Route, snapshot_query};
+use super::{NativeView, Route, snapshot_query};
 use gpui_kit::component::{ActiveTheme, Sizable, Size, progress::ProgressCircle, v_flex};
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement,
@@ -48,16 +48,7 @@ impl NativeView {
         snapshot_query::has_update(&self.snapshot, id)
     }
 
-    /// Updates `ids` from their sources, keeping the result for the page to show.
-    pub(super) fn update(&mut self, ids: Vec<SkillId>, cx: &mut Context<Self>) {
-        let client = self.client.clone();
-        self.run(
-            async move { client.update_skills(ids).await.map(Effect::Updated) },
-            cx,
-        );
-    }
-
-    /// A skill's Update button; its click updates only that skill.
+    /// A skill's Update button; its click opens the review of that skill's update.
     pub(super) fn update_button(
         &self,
         key: &str,
@@ -80,7 +71,7 @@ impl NativeView {
             .on_click(cx.listener(move |view, _, _, cx| {
                 // The row or card under the button would open the skill's page.
                 cx.stop_propagation();
-                view.update(vec![skill.clone()], cx);
+                view.review_update(skill.clone(), cx);
             }))
             .into_any_element()
     }

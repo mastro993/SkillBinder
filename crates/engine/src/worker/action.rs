@@ -141,6 +141,8 @@ actions! {
     RetryCopies => Copies, Change, "copies retry";
     CheckUpdates => Update, Job, "check";
     UpdateSkills => Update, Change, "update";
+    ReviewUpdate => Update, Detail, "review";
+    UpdateReviewed => Update, Change, "reviewed update";
     ReinstallSkill => Update, Change, "reinstall";
     AddWorkspaces => Workspaces, Change, "workspaces add";
     RenameWorkspace => Workspaces, Change, "workspace rename";

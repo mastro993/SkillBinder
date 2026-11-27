@@ -32,8 +32,11 @@ const ICONS: &[(&str, &[u8])] = &[
     icon!("check", "Tick02Icon"),
     icon!("check-bold", "Tick02Icon-stroke-2"),
     icon!("check-circle", "CheckmarkCircle02Icon"),
+    // Kit's Diff folds: a file's chevron, and a fold that unfolds whole even once partly shown.
+    icon!("chevron-down", "ArrowDown01Icon"),
     icon!("chevron-left", "ArrowLeft01Icon"),
     icon!("chevron-right", "ArrowRight01Icon"),
+    icon!("chevrons-up-down", "ArrowDown01Icon"),
     icon!("chip", "ChipIcon"),
     icon!("clock", "Clock01Icon"),
     icon!("close", "Cancel01Icon"),
@@ -266,6 +269,22 @@ mod tests {
             ));
         }
         assert!(Assets.load("icons/circle-check.svg").is_err());
+    }
+
+    #[test]
+    fn the_diff_glyphs_are_mapped() {
+        for name in [
+            "chevron-down",
+            "chevron-right",
+            "chevrons-up-down",
+            "arrow-up",
+            "arrow-down",
+        ] {
+            assert!(matches!(
+                Assets.load(&format!("icons/{name}.svg")),
+                Ok(Some(_))
+            ));
+        }
     }
 
     #[test]

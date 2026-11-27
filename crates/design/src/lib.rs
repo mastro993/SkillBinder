@@ -12,6 +12,7 @@ mod count;
 mod dialog_footer;
 mod dialog_frame;
 mod dialog_header;
+mod diff_view;
 mod empty_state;
 pub mod explore;
 mod focus_ring;
@@ -59,6 +60,7 @@ pub use count::format_count;
 pub use dialog_footer::DialogFooter;
 pub use dialog_frame::{DIALOG_INSET, DialogFrame, DialogSize};
 pub use dialog_header::DialogHeader;
+pub use diff_view::{DiffView, diff_state};
 pub use empty_state::EmptyState;
 pub use focus_ring::{FOCUS_RING, focus_ring};
 #[cfg(feature = "native-test")]

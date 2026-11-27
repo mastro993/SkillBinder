@@ -23,6 +23,7 @@ mod progress;
 mod sync;
 mod sync_checks;
 mod update_all;
+mod update_review;
 
 /// How long a source check holds before the next refresh checks the skill again.
 const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60);
