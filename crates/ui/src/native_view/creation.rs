@@ -6,7 +6,7 @@ use super::route::{History, Route};
 use super::sidebar_reorder::RowReorder;
 use super::{
     DialogState, NativeView, app_update_notice, explore, folder_reorder, git_setup, hover_scroll,
-    new_agent_notice, onboarding, settings, shell, sidebar, snapshot_query, toasts,
+    new_agent_notice, onboarding, settings, shell, sidebar, snapshot_query, sync, toasts,
 };
 use crate::gate::{self, Gate};
 use gpui_kit::component::input::{InputEvent, InputState};
@@ -175,6 +175,7 @@ impl NativeView {
             update_outcome: None,
             found_flash: None,
             skill_load: None,
+            sync_history: sync::HistoryPages::default(),
             search,
             preset_name,
             folder_name,

@@ -5,6 +5,7 @@ use std::{fs, path::PathBuf};
 use tempfile::TempDir;
 
 mod commit;
+mod history;
 
 /// A committer with no reasons, naming the device "Test".
 pub(super) struct Unnamed;

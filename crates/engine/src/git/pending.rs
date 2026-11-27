@@ -4,7 +4,7 @@
 //! The base is the merge base of this device's commit and the remote's, or the empty tree when
 //! either has none.
 
-use super::note::{kind, skill_trailer};
+use super::note::{DEVICE, SKILL, kind, skill_trailer};
 use super::{Git, failure, process, record_of, skill_of};
 use skillbinder_proto::{AppResult, ChangedSkill, Incoming, Reason};
 use std::{
@@ -12,9 +12,6 @@ use std::{
     path::Path,
     time::Duration,
 };
-
-const DEVICE: &str = "SkillBinder-Device";
-const SKILL: &str = "SkillBinder-Skill";
 
 /// What the commits of a range say: who made them, when the newest was made, and the newest
 /// reason each slug carries.

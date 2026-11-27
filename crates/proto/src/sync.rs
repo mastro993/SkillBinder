@@ -4,9 +4,11 @@ use serde::{Deserialize, Serialize};
 
 mod address;
 mod change;
+mod history;
 mod reason;
 
 pub use change::{ChangeKind, ChangedSkill, Incoming};
+pub use history::{SyncChange, SyncHistory};
 pub use reason::Reason;
 
 /// A validated remote and branch selected by the user.
@@ -66,6 +68,9 @@ pub struct SyncSnapshot {
     /// This device's name, which each commit Push or Sync makes carries.
     #[serde(default)]
     pub device: String,
+    /// The commit the library was at when last checked, which History is read from.
+    #[serde(default)]
+    pub head: Option<String>,
 }
 /// An explicitly requested synchronization operation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

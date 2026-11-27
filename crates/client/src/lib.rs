@@ -371,6 +371,16 @@ impl Client {
     pub async fn preview_delete(&self, id: PresetId) -> AppResult<DeletePreview> {
         self.shared.engine.preview_delete(id).await
     }
+    /// Reads a page of History: up to `limit` changes after the commit `before`, or the newest
+    /// ones. A request, not part of the snapshot: read it again when the sync snapshot's `head`
+    /// moves.
+    pub async fn sync_history(
+        &self,
+        before: Option<String>,
+        limit: usize,
+    ) -> AppResult<SyncHistory> {
+        self.shared.engine.sync_history(before, limit).await
+    }
     /// Connects and fetches a remote without implicit commits.
     pub async fn connect_remote(&self, remote: RemoteConfig) -> AppResult<SyncSnapshot> {
         self.refresh_preserving_outcome(self.shared.engine.connect_remote(remote).await)

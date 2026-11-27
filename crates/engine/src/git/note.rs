@@ -4,6 +4,10 @@
 use skillbinder_proto::{ChangeKind as Kind, Reason};
 use std::collections::BTreeMap;
 
+/// The trailer naming the device that made a commit.
+pub(super) const DEVICE: &str = "SkillBinder-Device";
+/// The trailer saying why a commit changed one skill.
+pub(super) const SKILL: &str = "SkillBinder-Skill";
 /// The longest subject, in characters.
 const SUBJECT: usize = 72;
 /// Characters Git drops around an author name; one made only of these is refused.
@@ -105,10 +109,10 @@ impl Note {
     /// skill. A slug's spaces and percent signs are percent-encoded, so its end is the first
     /// space.
     pub(super) fn trailers(&self) -> String {
-        let mut lines = vec![format!("SkillBinder-Device: {}", self.device)];
+        let mut lines = vec![format!("{DEVICE}: {}", self.device)];
         for (slug, _, reason) in &self.skills {
             let slug = slug.replace('%', "%25").replace(' ', "%20");
-            let mut line = format!("SkillBinder-Skill: {slug} {}", reason.word());
+            let mut line = format!("{SKILL}: {slug} {}", reason.word());
             if let Some(detail) = reason.detail() {
                 line = format!("{line} {}", one_line(detail));
             }
