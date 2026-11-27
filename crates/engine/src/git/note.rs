@@ -1,13 +1,15 @@
 //! The message of a commit Push or Sync makes (ADR 0038): a subject naming the device and each
 //! skill, one body line per skill saying why it changed, and trailers that other devices read.
 
-use skillbinder_proto::{ChangeKind as Kind, Reason};
+use skillbinder_proto::{ChangeKind as Kind, Reason, Side};
 use std::collections::BTreeMap;
 
 /// The trailer naming the device that made a commit.
 pub(super) const DEVICE: &str = "SkillBinder-Device";
 /// The trailer saying why a commit changed one skill.
 pub(super) const SKILL: &str = "SkillBinder-Skill";
+/// The trailer saying whose version of a skill changed on both sides a merge kept.
+pub(super) const CHOICE: &str = "SkillBinder-Choice";
 /// The longest subject, in characters.
 const SUBJECT: usize = 72;
 /// Characters Git drops around an author name; one made only of these is refused.
@@ -38,15 +40,33 @@ pub(super) fn skill_trailer(value: &str) -> Option<(String, Reason)> {
         Some((word, detail)) => (word, Some(detail.to_owned())),
         None => (rest, None),
     };
-    let slug = slug.replace("%20", " ").replace("%25", "%");
-    Some((slug, Reason::stored(word, detail)))
+    Some((decoded(slug), Reason::stored(word, detail)))
 }
 
-/// What a commit says: the device that made it, and each skill it changes and why.
+/// The slug and side a `SkillBinder-Choice` trailer's value records.
+pub(super) fn choice_trailer(value: &str) -> Option<(String, Side)> {
+    let (slug, side) = value.trim().split_once(' ')?;
+    Some((decoded(slug), Side::stored(side)?))
+}
+
+/// A slug with its spaces and percent signs percent-encoded, so its end in a trailer is the
+/// first space.
+fn encoded(slug: &str) -> String {
+    slug.replace('%', "%25").replace(' ', "%20")
+}
+
+fn decoded(slug: &str) -> String {
+    slug.replace("%20", " ").replace("%25", "%")
+}
+
+/// What a commit says: the device that made it, each skill it changes and why, and for a merge,
+/// whose version of each skill changed on both sides it kept.
 pub(super) struct Note {
     device: String,
     /// Added skills first, then changed, then removed, each by slug.
     skills: Vec<(String, Kind, Reason)>,
+    /// For a merge, the choices, by slug; `None` for any other commit.
+    choices: Option<Vec<(String, Side)>>,
 }
 
 impl Note {
@@ -64,7 +84,24 @@ impl Note {
             })
             .collect();
         skills.sort_by(|a, b| (a.1, &a.0).cmp(&(b.1, &b.0)));
-        Self { device, skills }
+        Self {
+            device,
+            skills,
+            choices: None,
+        }
+    }
+
+    /// A merge's note: what it changes against the remote's commit, as [`Note::new`] says, and
+    /// each choice.
+    pub(super) fn merge(
+        device: String,
+        kinds: BTreeMap<String, Kind>,
+        reasons: &BTreeMap<String, Reason>,
+        choices: &BTreeMap<String, Side>,
+    ) -> Self {
+        let mut note = Self::new(device, kinds, reasons);
+        note.choices = Some(choices.iter().map(|(s, side)| (s.clone(), *side)).collect());
+        note
     }
 
     /// `<device>: add a, update b, remove c`, cut to 72 characters with "and <n> more".
@@ -76,7 +113,10 @@ impl Note {
             .map(|(slug, kind, _)| format!("{} {slug}", verb(*kind)))
             .collect();
         if parts.is_empty() {
-            return format!("{head}start the library");
+            return match self.choices {
+                Some(_) => format!("{head}sync with the remote"),
+                None => format!("{head}start the library"),
+            };
         }
         let with = |shown: usize| {
             let mut subject = head.clone() + &parts[..shown].join(", ");
@@ -96,13 +136,19 @@ impl Note {
             })
     }
 
-    /// One line per skill: how it changed and why.
+    /// One line per skill: how it changed and why; then one per choice.
     pub(super) fn body(&self) -> String {
-        self.skills
+        let skills = (self.skills.iter())
+            .map(|(slug, kind, reason)| format!("{} {slug}: {}", verb(*kind), why(reason, *kind)));
+        let choices = self
+            .choices
             .iter()
-            .map(|(slug, kind, reason)| format!("{} {slug}: {}", verb(*kind), why(reason, *kind)))
-            .collect::<Vec<_>>()
-            .join("\n")
+            .flatten()
+            .map(|(slug, side)| match side {
+                Side::Local => format!("keep {slug}: this device's version"),
+                Side::Remote => format!("keep {slug}: the remote's version"),
+            });
+        skills.chain(choices).collect::<Vec<_>>().join("\n")
     }
 
     /// `SkillBinder-Device: <device>`, then `SkillBinder-Skill: <slug> <reason>[ <detail>]` per
@@ -111,18 +157,36 @@ impl Note {
     pub(super) fn trailers(&self) -> String {
         let mut lines = vec![format!("{DEVICE}: {}", self.device)];
         for (slug, _, reason) in &self.skills {
-            let slug = slug.replace('%', "%25").replace(' ', "%20");
+            let slug = encoded(slug);
             let mut line = format!("{SKILL}: {slug} {}", reason.word());
             if let Some(detail) = reason.detail() {
                 line = format!("{line} {}", one_line(&detail));
             }
             lines.push(line);
         }
+        for (slug, side) in self.choices.iter().flatten() {
+            lines.push(format!("{CHOICE}: {} {}", encoded(slug), side.word()));
+        }
         lines.join("\n")
     }
 
+    /// Git's `-c` options naming the device as the commit's author and committer.
+    pub(super) fn identity(&self) -> Vec<String> {
+        let author = self.author();
+        let mut args = Vec::new();
+        for role in ["author", "committer"] {
+            args.extend([
+                "-c".to_owned(),
+                format!("{role}.name={author}"),
+                "-c".to_owned(),
+                format!("{role}.email=local@skillbinder.invalid"),
+            ]);
+        }
+        args
+    }
+
     /// The author and committer name: the device's, without the characters Git refuses in one.
-    pub(super) fn author(&self) -> String {
+    fn author(&self) -> String {
         let name: String = self.device.chars().filter(|c| !"<>".contains(*c)).collect();
         if name.chars().all(|c| c.is_whitespace() || CRUD.contains(c)) {
             "SkillBinder".to_owned()
@@ -162,8 +226,8 @@ fn one_line(text: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{Kind, Note, skill_trailer};
-    use skillbinder_proto::Reason;
+    use super::{Kind, Note, choice_trailer, skill_trailer};
+    use skillbinder_proto::{Reason, Side};
     use std::collections::BTreeMap;
 
     fn note(device: &str, skills: &[(&str, Kind)], reasons: &[(&str, Reason)]) -> Note {
@@ -282,6 +346,32 @@ mod tests {
             .collect();
         assert_eq!(read, written);
         assert_eq!(skill_trailer("lonely"), None);
+    }
+
+    #[test]
+    fn a_merge_says_each_choice_and_reads_it_back() {
+        let choices = BTreeMap::from([
+            ("my notes".to_owned(), Side::Remote),
+            ("review".to_owned(), Side::Local),
+        ]);
+        let kinds = BTreeMap::from([("review".to_owned(), Kind::Changed)]);
+        let merge = Note::merge("Laptop".into(), kinds, &BTreeMap::new(), &choices);
+        assert_eq!(merge.subject(), "Laptop: update review");
+        assert_eq!(
+            merge.body(),
+            "update review: changed outside SkillBinder\n\
+             keep my notes: the remote's version\n\
+             keep review: this device's version"
+        );
+        let trailers = merge.trailers();
+        let read: BTreeMap<_, _> = (trailers.lines())
+            .filter_map(|line| line.strip_prefix("SkillBinder-Choice: "))
+            .filter_map(choice_trailer)
+            .collect();
+        assert_eq!(read, choices);
+        let nothing = Note::merge("Laptop".into(), BTreeMap::new(), &BTreeMap::new(), &choices);
+        assert_eq!(nothing.subject(), "Laptop: sync with the remote");
+        assert_eq!(choice_trailer("review mine"), None);
     }
 
     #[test]

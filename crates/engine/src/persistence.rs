@@ -17,6 +17,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+mod merge;
+
 pub(crate) fn now() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -203,6 +205,7 @@ impl State {
     pub(crate) fn recover(&mut self) -> AppResult<()> {
         self.recovery_required = true;
         let bodies = journals::table
+            .filter(journals::id.ne(merge::MERGE))
             .order(journals::id)
             .select(journals::body)
             .load::<String>(&mut *self.database.borrow_mut())
@@ -217,7 +220,7 @@ impl State {
                 self.finish_journal(&mut journal)?;
             }
         }
-        self.recovery_required = false;
+        self.recovery_required = !self.recover_merge()?;
         Ok(())
     }
     pub(crate) fn commit(&mut self, mut journal: Journal) -> AppResult<()> {

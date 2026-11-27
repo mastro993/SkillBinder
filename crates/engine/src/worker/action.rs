@@ -97,6 +97,7 @@ actions! {
     Pull => Sync, Change, "pull";
     Push => Sync, Change, "push";
     Sync => Sync, Change, "sync";
+    ResolveSync => Sync, Change, "sync resolve";
     Disconnect => Sync, Change, "disconnect";
     RenameDevice => Sync, Change, "device rename";
     History => Sync, Detail, "history";

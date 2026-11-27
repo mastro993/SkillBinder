@@ -4,7 +4,7 @@
 
 use super::super::sidebar_presets::menu_action;
 use super::super::{DialogState, NativeView};
-use super::copy::{self, Tint};
+use super::copy::{self, Next, Tint};
 use gpui_kit::component::{ActiveTheme, Sizable, Theme, h_flex, v_flex};
 use gpui_kit::{
     AnyElement, App, ClickEvent, ClipboardItem, Context, Hsla, InteractiveElement, IntoElement,
@@ -22,28 +22,32 @@ const MENU_OWNER: &str = "sync-more";
 impl NativeView {
     /// The status card, while the state has one.
     pub(super) fn sync_status(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
-        let status = copy::status(&self.snapshot.sync, chrono::Utc::now())?;
+        let chosen = self.sync_choices.complete(&self.snapshot.sync.conflicts);
+        let status = copy::status(&self.snapshot.sync, chosen, chrono::Utc::now())?;
         let running = self.snapshot.syncing;
         let inactive = self.blocked() || running.is_some();
-        let main = status.main.map(|action| {
-            let label = if running == Some(action) {
-                copy::running(action)
-            } else {
-                copy::main_label(action)
+        let main = status.main.map(|next| {
+            let runs = matches!(next, Next::Run(action) if running == Some(action));
+            let label = match next {
+                Next::Run(action) if runs => copy::running(action),
+                next => copy::main_label(next),
             };
             let button = Button::new("sync-main")
                 .label(label)
-                .loading(running == Some(action))
+                .loading(runs)
                 .inactive(inactive)
-                .on_click(cx.listener(move |view, _, _, cx| view.synchronize(action, cx)));
+                .on_click(cx.listener(move |view, _, _, cx| match next {
+                    Next::Run(action) => view.synchronize(action, cx),
+                    Next::Resolve => view.open_resolve(cx),
+                }));
             // Try again is the outline button; every other next action is the primary.
-            match action {
-                SyncAction::Refresh => button,
+            match next {
+                Next::Run(SyncAction::Refresh) => button,
                 _ => button.primary(),
             }
         });
         let checking = running == Some(SyncAction::Refresh);
-        let check_now = (status.main != Some(SyncAction::Refresh)).then(|| {
+        let check_now = (status.main != Some(Next::Run(SyncAction::Refresh))).then(|| {
             Button::new("sync-check")
                 .label(if checking {
                     copy::running(SyncAction::Refresh)
@@ -139,8 +143,9 @@ impl NativeView {
         let Some(remote) = sync.remote.clone() else {
             return Vec::new();
         };
-        let changed_here = matches!(sync.state, SyncState::NeedsPush | SyncState::NeedsSync);
-        let changed_there = matches!(sync.state, SyncState::NeedsPull | SyncState::NeedsSync);
+        let both = matches!(sync.state, SyncState::NeedsSync | SyncState::NeedsResolve);
+        let changed_here = both || sync.state == SyncState::NeedsPush;
+        let changed_there = both || sync.state == SyncState::NeedsPull;
         let run = |action| {
             menu_action(view.clone(), action, |view, action, _, cx| {
                 view.synchronize(*action, cx);
@@ -222,6 +227,7 @@ pub(super) fn tinted(tint: Tint, theme: &Theme) -> (Hsla, Hsla) {
             color::ACCENT_SOFT_FOREGROUND.of(theme),
         ),
         Tint::Success => (theme.muted, color::SUCCESS_TEXT.of(theme)),
+        Tint::Warning => (theme.muted, color::WARNING_TEXT.of(theme)),
         Tint::Danger => (theme.muted, color::DANGER_TEXT.of(theme)),
     }
 }

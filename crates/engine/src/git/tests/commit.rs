@@ -19,6 +19,12 @@ impl Committer for Studio {
         self.0.set(self.0.get() + 1);
         Ok(())
     }
+    fn merging(&self, _: &Merge) -> AppResult<()> {
+        Ok(())
+    }
+    fn merged(&self) -> AppResult<()> {
+        Ok(())
+    }
 }
 #[test]
 fn a_commit_names_its_device_and_why_each_skill_changed() {
@@ -37,7 +43,13 @@ fn a_commit_names_its_device_and_why_each_skill_changed() {
     fs::write(f.repo.join("records/review.toml"), "tree = \"\"\n").unwrap();
     let studio = Studio::default();
     f.git
-        .perform_with(&f.repo, Some(&f.remote), SyncAction::Push, &studio)
+        .perform_with(
+            &f.repo,
+            Some(&f.remote),
+            SyncAction::Push,
+            &BTreeMap::new(),
+            &studio,
+        )
         .unwrap();
     assert_eq!(studio.0.get(), 1);
     let pushed = f
@@ -70,7 +82,13 @@ fn a_commit_names_its_device_and_why_each_skill_changed() {
     // Nothing left to commit makes no commit, and still leaves no reason to explain.
     let head = f.git.revision(&f.repo, "HEAD").unwrap();
     f.git
-        .perform_with(&f.repo, Some(&f.remote), SyncAction::Push, &studio)
+        .perform_with(
+            &f.repo,
+            Some(&f.remote),
+            SyncAction::Push,
+            &BTreeMap::new(),
+            &studio,
+        )
         .unwrap();
     assert_eq!(f.git.revision(&f.repo, "HEAD").unwrap(), head);
     assert_eq!(studio.0.get(), 2);

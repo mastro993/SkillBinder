@@ -17,7 +17,7 @@ use skillbinder_proto::{
     SkillId, SyncAction, SyncState, ValidationStatus,
 };
 use std::fs;
-use support::{Fixture, category, write_skill};
+use support::{Fixture, write_skill};
 
 async fn snapshot(engine: &Engine) -> LibrarySnapshot {
     engine.snapshot().await.unwrap().library.unwrap()
@@ -154,7 +154,7 @@ async fn a_skill_removed_by_pull_leaves_its_presets_and_folder() {
 }
 
 #[tokio::test]
-async fn local_organization_does_not_block_adoption_but_a_local_skill_does() {
+async fn local_organization_does_not_block_adoption_and_a_local_skill_merges() {
     let published = Device::published(&["alpha"]).await;
 
     let fresh = Fixture::new();
@@ -202,18 +202,13 @@ async fn local_organization_does_not_block_adoption_but_a_local_skill_does() {
         .connect_remote(published.remote.clone())
         .await
         .unwrap();
-    assert_eq!(
-        category(engine.synchronize(SyncAction::Sync).await),
-        ErrorCategory::Git
-    );
-    assert_eq!(slugs(&snapshot(&engine).await), ["local"]);
-    assert!(
-        occupied
-            .data
-            .join("library/skills/local/SKILL.md")
-            .is_file()
-    );
-    assert!(!occupied.data.join("library/skills/alpha").exists());
+    // A local skill is not adopted over: Sync merges it with the remote's skills (ADR 0039).
+    engine.synchronize(SyncAction::Sync).await.unwrap();
+    assert_eq!(slugs(&snapshot(&engine).await), ["alpha", "local"]);
+    for slug in ["alpha", "local"] {
+        let path = occupied.data.join("library/skills").join(slug);
+        assert!(path.join("SKILL.md").is_file());
+    }
     engine.shutdown().await.unwrap();
     published.engine.shutdown().await.unwrap();
 }

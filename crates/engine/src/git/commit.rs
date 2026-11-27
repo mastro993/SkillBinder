@@ -1,6 +1,7 @@
 //! The commit Push and Sync make of the managed files (ADR 0038), named by the device and saying
 //! why each skill changed.
 
+use super::merge::Merge;
 use super::note::{self, Note};
 use super::{Git, MANAGED, record_of, skill_of};
 use skillbinder_proto::{AppResult, ChangeKind, Reason};
@@ -21,6 +22,11 @@ pub(crate) trait Committer {
     /// Runs once HEAD holds the managed files as they are, whether or not that took a commit,
     /// so no change is left for a recorded reason to explain.
     fn committed(&self) -> AppResult<()>;
+    /// Records `merge` before the library's files move to it, so a launch after an interruption
+    /// finishes it.
+    fn merging(&self, merge: &Merge) -> AppResult<()>;
+    /// Forgets the merge once HEAD is the merged commit.
+    fn merged(&self) -> AppResult<()>;
 }
 
 impl Git {
@@ -59,16 +65,7 @@ impl Git {
     ) -> AppResult<()> {
         let kinds = self.kinds(repo, head, staged, changed)?;
         let note = Note::new(committer.device()?, kinds, &committer.reasons()?);
-        let author = note.author();
-        let mut args = Vec::new();
-        for role in ["author", "committer"] {
-            args.extend([
-                "-c".to_owned(),
-                format!("{role}.name={author}"),
-                "-c".to_owned(),
-                format!("{role}.email=local@skillbinder.invalid"),
-            ]);
-        }
+        let mut args = note.identity();
         args.extend(["commit", "--allow-empty", "--cleanup=whitespace"].map(str::to_owned));
         for paragraph in [note.subject(), note.body(), note.trailers()] {
             if !paragraph.is_empty() {
@@ -79,7 +76,7 @@ impl Git {
             .map(drop)
     }
     /// How the `-z` paths `changed` change each slug from `head` to the tree `staged`.
-    fn kinds(
+    pub(super) fn kinds(
         &self,
         repo: &Path,
         head: Option<&str>,

@@ -65,6 +65,11 @@ impl NativeView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let removed = skill.kind == ChangeKind::Removed;
+        let label = if removed {
+            "Bring back"
+        } else {
+            "Restore this version"
+        };
         let restoring = Restoring {
             slug: skill.slug.clone(),
             commit: change.commit.clone(),
@@ -72,28 +77,53 @@ impl NativeView {
             day,
             time,
         };
+        self.restore_offer(change, restoring, label.to_owned(), cx)
+    }
+
+    /// A merge's Restore <device>'s version, where the remote's version of a skill changed on
+    /// both sides won, which restores the merging device's from `unpicked` (Y6).
+    pub(super) fn restore_unpicked(
+        &self,
+        change: &SyncChange,
+        (slug, unpicked): (&str, &str),
+        (day, time): (String, String),
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let device = change.device.as_deref().unwrap_or("this device");
+        let restoring = Restoring {
+            slug: slug.to_owned(),
+            commit: unpicked.to_owned(),
+            removed: false,
+            day,
+            time,
+        };
+        self.restore_offer(change, restoring, format!("Restore {device}'s version"), cx)
+    }
+
+    /// A History row's button `label`, which asks before restoring `restoring`.
+    fn restore_offer(
+        &self,
+        change: &SyncChange,
+        restoring: Restoring,
+        label: String,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let id: String = change.commit.chars().take(12).collect();
+        let slug = restoring.slug.clone();
         revealed(
-            Button::new(SharedString::from(format!(
-                "sync-restore-{id}-{}",
-                skill.slug
-            )))
-            .variant(ButtonVariant::Secondary)
-            .small()
-            .icon(icon("undo"))
-            .label(if removed {
-                "Bring back"
-            } else {
-                "Restore this version"
-            })
-            .accessibility_label(format!("Restore {}", skill.slug))
-            .inactive(self.undo_refused())
-            .on_click(cx.listener(move |view, _, _, cx| {
-                if !view.undo_refused() {
-                    view.show_dialog(DialogState::RestoreVersion(Box::new(restoring.clone())));
-                    cx.notify();
-                }
-            })),
+            Button::new(SharedString::from(format!("sync-restore-{id}-{slug}")))
+                .variant(ButtonVariant::Secondary)
+                .small()
+                .icon(icon("undo"))
+                .label(label)
+                .accessibility_label(format!("Restore {slug}"))
+                .inactive(self.undo_refused())
+                .on_click(cx.listener(move |view, _, _, cx| {
+                    if !view.undo_refused() {
+                        view.show_dialog(DialogState::RestoreVersion(Box::new(restoring.clone())));
+                        cx.notify();
+                    }
+                })),
         )
     }
 

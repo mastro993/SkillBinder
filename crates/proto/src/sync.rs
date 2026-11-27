@@ -4,10 +4,12 @@ use serde::{Deserialize, Serialize};
 
 mod address;
 mod change;
+mod conflict;
 mod history;
 mod reason;
 
 pub use change::{ChangeKind, ChangedSkill, Incoming};
+pub use conflict::{Choice, Conflict, ConflictSide, Side};
 pub use history::{SyncChange, SyncHistory};
 pub use reason::Reason;
 
@@ -32,8 +34,10 @@ pub enum SyncState {
     NeedsPull,
     /// Local commits or uncommitted managed content need publication.
     NeedsPush,
-    /// Local and remote work require explicit synchronization or resolution.
+    /// Both sides changed, none of the same skill to different versions: Sync merges them.
     NeedsSync,
+    /// Both sides changed a skill to different versions: Sync needs a choice for each.
+    NeedsResolve,
     /// The last check of the remote failed; `last_error` says why.
     Unreachable,
 }
@@ -60,6 +64,10 @@ pub struct SyncSnapshot {
     /// What the remote changed since that commit, which a Pull brings, if it has any commit.
     #[serde(default)]
     pub incoming: Option<Incoming>,
+    /// The skills both sides changed to different versions, by slug, which Sync needs a choice
+    /// for.
+    #[serde(default)]
+    pub conflicts: Vec<Conflict>,
     /// Last successful fetch as Unix seconds.
     pub refreshed_at: Option<u64>,
     /// Why the last check of the remote failed, until a check or an operation reaches it.
@@ -81,7 +89,7 @@ pub enum SyncAction {
     Pull,
     /// Commit managed files and publish when no pull is required.
     Push,
-    /// Reconcile only safe fast-forward states, then publish managed changes.
+    /// Merge both sides' changes per skill, or fast-forward, then publish managed changes.
     Sync,
     /// Remove remote configuration without changing managed files.
     Disconnect,

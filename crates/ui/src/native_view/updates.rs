@@ -45,6 +45,8 @@ impl NativeView {
         if latest.bootstrap.onboarding.finished {
             self.first_import = None;
         }
+        // Choices last until a Sync or a check changes which skills changed on both sides.
+        self.sync_choices.follow(&latest.sync.conflicts);
         let shown = self.route.clone();
         if let Some(library) = &latest.library {
             let exists = |id: &PresetId| library.library.presets.iter().any(|f| &f.id == id);

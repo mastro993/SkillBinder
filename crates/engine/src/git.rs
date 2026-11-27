@@ -4,28 +4,31 @@ mod commit;
 mod discovery;
 mod history;
 mod install;
+mod merge;
 mod note;
 mod objects;
 mod pending;
 mod process;
 mod source;
+mod status;
 #[cfg(test)]
 mod tests;
 mod validation;
 
 pub(crate) use commit::Committer;
 pub(crate) use install::Installer;
+pub(crate) use merge::Merge;
 pub(crate) use source::validate as validate_source;
 pub(crate) use validation::url as validate_url;
 
 use crate::{shutdown::Shutdown, storage};
 use skillbinder_proto::{
-    AppError, AppResult, ErrorCategory, Reason, RemoteConfig, SyncAction, SyncSnapshot, SyncState,
+    AppError, AppResult, ErrorCategory, Reason, RemoteConfig, Side, SyncAction, SyncSnapshot,
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::Path,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::Duration,
 };
 
 const REMOTE_REF: &str = "refs/skillbinder/incoming";
@@ -101,14 +104,17 @@ impl Git {
         remote: Option<&RemoteConfig>,
         action: SyncAction,
     ) -> AppResult<SyncSnapshot> {
-        self.perform_with(repo, remote, action, &tests::Unnamed)
+        self.perform_with(repo, remote, action, &BTreeMap::new(), &tests::Unnamed)
     }
-    /// Executes an explicit operation; a Push or Sync commits through `committer`.
+    /// Executes an explicit operation; a Push or Sync commits through `committer`. A Sync with
+    /// changes on both sides merges them, keeping the side `chosen` for each skill changed on
+    /// both, and refuses unless every such skill has one.
     pub(crate) fn perform_with(
         &self,
         repo: &Path,
         remote: Option<&RemoteConfig>,
         action: SyncAction,
+        chosen: &BTreeMap<String, Side>,
         committer: &dyn Committer,
     ) -> AppResult<SyncSnapshot> {
         if matches!(action, SyncAction::Disconnect) {
@@ -124,18 +130,22 @@ impl Git {
         let adopt = before.behind > 0
             && matches!(action, SyncAction::Pull | SyncAction::Sync)
             && self.can_adopt(repo)?;
-        if !adopt && before.behind > 0 && (before.ahead > 0 || before.uncommitted) {
-            return Err(failure(
-                "Local and remote changes require manual reconciliation.",
-            ));
-        }
-        if !adopt && matches!(action, SyncAction::Pull) && before.uncommitted {
-            return Err(failure("Commit local managed changes before pulling."));
+        let diverged = before.behind > 0 && (before.ahead > 0 || before.uncommitted);
+        if !adopt && matches!(action, SyncAction::Pull) && (diverged || before.uncommitted) {
+            return Err(failure("Push or Sync first: this device has changes."));
         }
         if matches!(action, SyncAction::Push) && before.behind > 0 {
-            return Err(failure("Pull remote changes before pushing."));
+            return Err(failure("Pull or Sync first: the remote has changes."));
         }
         self.scope(repo)?;
+        if !adopt && diverged {
+            let incoming = self
+                .revision(repo, REMOTE_REF)?
+                .ok_or_else(|| failure("Remote revision is unavailable."))?;
+            self.merge(repo, &incoming, (&before.conflicts, chosen), committer)?;
+            self.publish(repo, remote)?;
+            return self.status(repo, Some(remote), true, &committer.reasons()?);
+        }
         if adopt {
             self.adopt(repo)?;
         } else if before.behind > 0 {
@@ -147,164 +157,29 @@ impl Git {
             }
             self.commit(repo, committer)?;
             if self.revision(repo, "HEAD")?.is_some() {
-                self.network_output(
-                    repo,
-                    &[
-                        "push",
-                        "--",
-                        &remote.url,
-                        &format!("HEAD:refs/heads/{}", remote.branch),
-                    ],
-                )?;
+                self.publish(repo, remote)?;
             }
         }
         self.status(repo, Some(remote), true, &committer.reasons()?)
     }
-    /// Classifies the state, optionally fetching, and lists what waits on each side. A skill
-    /// changed on this device says why from `reasons`, by slug, else from the commits not pushed
-    /// yet. Never commits or checks out files.
-    pub fn status(
-        &self,
-        repo: &Path,
-        remote: Option<&RemoteConfig>,
-        fetch: bool,
-        reasons: &BTreeMap<String, Reason>,
-    ) -> AppResult<SyncSnapshot> {
-        let porcelain = self.output(
+    /// Pushes HEAD to the remote's branch.
+    fn publish(&self, repo: &Path, remote: &RemoteConfig) -> AppResult<()> {
+        self.network_output(
             repo,
             &[
-                "status",
-                "--porcelain=v1",
-                "-z",
-                "--untracked-files=all",
-                "--ignored=matching",
+                "push",
                 "--",
-                MANAGED[0],
-                MANAGED[1],
-            ],
-        )?;
-        let changed_files = changed_files(&porcelain);
-        let dirty = changed_files > 0;
-        let Some(remote) = remote else {
-            return Ok(SyncSnapshot {
-                uncommitted: dirty,
-                changed_files,
-                ..Default::default()
-            });
-        };
-        self.validate_remote(remote)?;
-        if fetch {
-            self.reconcile_origin(repo, remote)?;
-            self.fetch(repo, remote)?;
-        }
-        let local = self.revision(repo, "HEAD")?;
-        let incoming = self.revision(repo, REMOTE_REF)?;
-        let (ahead, behind) = match (&local, &incoming) {
-            (Some(local), Some(incoming)) => {
-                let counts = self.output(
-                    repo,
-                    &[
-                        "rev-list",
-                        "--left-right",
-                        "--count",
-                        &format!("{local}...{incoming}"),
-                    ],
-                )?;
-                let mut counts = counts.split_whitespace();
-                (count(counts.next())?, count(counts.next())?)
-            }
-            (Some(_), None) => (1, 0),
-            (None, Some(_)) => (0, 1),
-            (None, None) => (0, 0),
-        };
-        let state = if behind > 0 && (ahead > 0 || dirty) {
-            SyncState::NeedsSync
-        } else if behind > 0 {
-            SyncState::NeedsPull
-        } else if ahead > 0 || dirty || incoming.is_none() {
-            SyncState::NeedsPush
-        } else {
-            SyncState::Synced
-        };
-        let (local_skills, incoming_skills) = if state == SyncState::Synced {
-            (Vec::new(), None)
-        } else {
-            self.pending(
-                repo,
-                local.as_deref(),
-                incoming.as_deref(),
-                &porcelain,
-                reasons,
-            )?
-        };
-        Ok(SyncSnapshot {
-            remote: Some(remote.clone()),
-            state,
-            ahead,
-            behind,
-            uncommitted: dirty,
-            changed_files,
-            local: local_skills,
-            incoming: incoming_skills,
-            refreshed_at: fetch.then(|| {
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_secs()
-            }),
-            last_error: None,
-            // The engine names the device.
-            device: String::new(),
-            head: local,
-        })
-    }
-    fn reconcile_origin(&self, repo: &Path, remote: &RemoteConfig) -> AppResult<()> {
-        self.output(
-            repo,
-            &[
-                "config",
-                "--local",
-                "--replace-all",
-                "remote.origin.url",
                 &remote.url,
+                &format!("HEAD:refs/heads/{}", remote.branch),
             ],
-        )?;
-        Ok(())
+        )
+        .map(drop)
     }
     fn disconnect_origin(&self, repo: &Path) -> AppResult<()> {
         let remotes = self.output(repo, &["remote"])?;
         if remotes.lines().any(|name| name == "origin") {
             self.output(repo, &["remote", "remove", "origin"])?;
         }
-        Ok(())
-    }
-    fn fetch(&self, repo: &Path, remote: &RemoteConfig) -> AppResult<()> {
-        let branch = format!("refs/heads/{}", remote.branch);
-        let refs =
-            self.network_output(repo, &["ls-remote", "--heads", "--", &remote.url, &branch])?;
-        if refs.trim().is_empty() {
-            self.output(repo, &["update-ref", "-d", REMOTE_REF])?;
-            return Ok(());
-        }
-        self.network_output(
-            repo,
-            &[
-                "fetch",
-                "--no-tags",
-                "--no-recurse-submodules",
-                "--no-write-fetch-head",
-                "--",
-                &remote.url,
-                &branch,
-            ],
-        )?;
-        let expected = refs
-            .split_whitespace()
-            .next()
-            .ok_or_else(|| failure("Remote revision is unavailable."))?;
-        // Use the advertised immutable object, never FETCH_HEAD from an unrelated operation.
-        self.validate_tree(repo, expected)?;
-        self.output(repo, &["update-ref", REMOTE_REF, expected])?;
         Ok(())
     }
     /// Refuses a fetched or about-to-be-committed tree whose managed entries are not regular
@@ -462,6 +337,10 @@ impl Git {
     fn network_output(&self, repo: &Path, args: &[&str]) -> AppResult<String> {
         self.run(repo, args, Duration::from_secs(30), Some(&self.shutdown))
     }
+    /// Runs a local command against the index file `index` instead of the library's own.
+    fn indexed_output(&self, repo: &Path, index: &Path, args: &[&str]) -> AppResult<String> {
+        self.run_in(repo, Some(index), args, Duration::from_secs(30), None)
+    }
     fn run(
         &self,
         repo: &Path,
@@ -469,7 +348,17 @@ impl Git {
         timeout: Duration,
         stop: Option<&Shutdown>,
     ) -> AppResult<String> {
-        let output = process::run(&self.program, Some(repo), args, timeout, stop)?;
+        self.run_in(repo, None, args, timeout, stop)
+    }
+    fn run_in(
+        &self,
+        repo: &Path,
+        index: Option<&Path>,
+        args: &[&str],
+        timeout: Duration,
+        stop: Option<&Shutdown>,
+    ) -> AppResult<String> {
+        let output = process::run_indexed(&self.program, Some(repo), index, args, timeout, stop)?;
         if !output.status.success() {
             return Err(
                 failure("Git operation failed. Check access and repository state.")
@@ -496,23 +385,6 @@ fn managed(path: &str) -> bool {
         path.strip_prefix(root)
             .is_some_and(|rest| rest.starts_with('/'))
     })
-}
-/// Counts `git status --porcelain=v1 -z` entries; renames and copies carry a second path.
-fn changed_files(status: &str) -> u64 {
-    let mut paths = status.split_terminator('\0');
-    let mut count = 0;
-    while let Some(entry) = paths.next() {
-        if entry.get(..2).is_some_and(|xy| xy.contains(['R', 'C'])) {
-            paths.next();
-        }
-        count += 1;
-    }
-    count
-}
-fn count(value: Option<&str>) -> AppResult<u64> {
-    value
-        .and_then(|v| v.parse().ok())
-        .ok_or_else(|| failure("Git returned invalid revision counts."))
 }
 fn failure(message: &str) -> AppError {
     AppError::new(

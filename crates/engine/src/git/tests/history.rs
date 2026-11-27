@@ -18,6 +18,12 @@ impl Committer for Laptop {
     fn committed(&self) -> AppResult<()> {
         Ok(())
     }
+    fn merging(&self, _: &Merge) -> AppResult<()> {
+        Ok(())
+    }
+    fn merged(&self) -> AppResult<()> {
+        Ok(())
+    }
 }
 
 fn write(f: &Fixture, path: &str, value: &str) {
@@ -51,7 +57,13 @@ fn push(f: &Fixture, reasons: &[(&str, Reason)]) {
         .map(|(slug, reason)| ((*slug).to_owned(), reason.clone()))
         .collect();
     f.git
-        .perform_with(&f.repo, Some(&f.remote), SyncAction::Push, &Laptop(reasons))
+        .perform_with(
+            &f.repo,
+            Some(&f.remote),
+            SyncAction::Push,
+            &BTreeMap::new(),
+            &Laptop(reasons),
+        )
         .unwrap();
 }
 

@@ -1,11 +1,13 @@
 //! The Sync page's words: each state's glyph, title, line, and main action (Y2), what a running
 //! action's button reads, the toast an action ends with (Y7), each waiting skill's kind and why
-//! (Y5, Y8), and what Discard and Restore ask before they write (Y7).
+//! (Y5, Y8), what Discard and Restore ask before they write (Y7), and what Resolve… and a merge
+//! in History say of the skills changed on both sides (Y5, Y6, Y9).
 
 use super::super::library_dates::{from_unix, relative};
 use chrono::{DateTime, Datelike, Utc};
 use skillbinder_proto::{
-    ChangeKind, ChangedSkill, Incoming, Reason, SyncAction, SyncSnapshot, SyncState,
+    ChangeKind, ChangedSkill, ConflictSide, Incoming, Reason, Side, SyncAction, SyncSnapshot,
+    SyncState,
 };
 
 /// The tint of the status card's glyph tile.
@@ -13,7 +15,16 @@ use skillbinder_proto::{
 pub(super) enum Tint {
     Success,
     Accent,
+    Warning,
     Danger,
+}
+
+/// The status card's one next action: a Git operation, or Resolve…, which asks for a choice for
+/// each skill changed on both sides.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum Next {
+    Run(SyncAction),
+    Resolve,
 }
 
 /// What the status card shows for the state.
@@ -24,21 +35,22 @@ pub(super) struct Status {
     pub(super) title: String,
     pub(super) line: String,
     /// The one next action, if the state has one.
-    pub(super) main: Option<SyncAction>,
+    pub(super) main: Option<Next>,
 }
 
-/// The status card for `sync` at `now`; a library with no remote shows the setup column instead.
-pub(super) fn status(sync: &SyncSnapshot, now: DateTime<Utc>) -> Option<Status> {
+/// The status card for `sync` at `now`, once every skill changed on both sides has a choice if
+/// `chosen`; a library with no remote shows the setup column instead.
+pub(super) fn status(sync: &SyncSnapshot, chosen: bool, now: DateTime<Utc>) -> Option<Status> {
     let checked = sync
         .refreshed_at
         .and_then(from_unix)
         .map(|at| relative(at, now));
-    let card = |glyph, tint, title: String, line: String, main| Status {
+    let card = |glyph, tint, title: String, line: String, main: Option<SyncAction>| Status {
         glyph,
         tint,
         title,
         line,
-        main,
+        main: main.map(Next::Run),
     };
     let here = sync.local.len();
     let incoming = sync.incoming.as_ref();
@@ -76,9 +88,25 @@ pub(super) fn status(sync: &SyncSnapshot, now: DateTime<Utc>) -> Option<Status> 
             "git-merge",
             Tint::Accent,
             "Changes on both sides".to_owned(),
-            format!("{here} here, {there} from {from}"),
+            format!("{here} here, {there} from {from} · none on the same skill"),
             Some(SyncAction::Sync),
         ),
+        SyncState::NeedsResolve => Status {
+            glyph: "git-merge-conflict",
+            tint: Tint::Warning,
+            title: format!("{} changed on both sides", skills(sync.conflicts.len())),
+            line: if chosen {
+                "Choices made · Sync to finish"
+            } else {
+                "Choose which version to keep"
+            }
+            .to_owned(),
+            main: Some(if chosen {
+                Next::Run(SyncAction::Sync)
+            } else {
+                Next::Resolve
+            }),
+        },
         SyncState::Unreachable => {
             let error = sync
                 .last_error
@@ -99,13 +127,14 @@ pub(super) fn status(sync: &SyncSnapshot, now: DateTime<Utc>) -> Option<Status> 
 }
 
 /// The label of the main action's button.
-pub(super) fn main_label(action: SyncAction) -> &'static str {
-    match action {
-        SyncAction::Push => "Push",
-        SyncAction::Pull => "Pull",
-        SyncAction::Sync => "Sync",
-        SyncAction::Refresh => "Try again",
-        SyncAction::Disconnect => "Disconnect",
+pub(super) fn main_label(next: Next) -> &'static str {
+    match next {
+        Next::Run(SyncAction::Push) => "Push",
+        Next::Run(SyncAction::Pull) => "Pull",
+        Next::Run(SyncAction::Sync) => "Sync",
+        Next::Run(SyncAction::Refresh) => "Try again",
+        Next::Run(SyncAction::Disconnect) => "Disconnect",
+        Next::Resolve => "Resolve…",
     }
 }
 
@@ -167,7 +196,12 @@ pub(super) fn kind(kind: ChangeKind) -> (&'static str, &'static str, Tint) {
 
 /// Why a skill changed (Y8); unknown for a commit made before device names.
 pub(super) fn why(skill: &ChangedSkill) -> Option<String> {
-    Some(match skill.reason.as_ref()? {
+    why_changed(skill.kind, skill.reason.as_ref())
+}
+
+/// Why a skill changed `kind`, from `reason`.
+fn why_changed(kind: ChangeKind, reason: Option<&Reason>) -> Option<String> {
+    Some(match reason? {
         Reason::Imported { from: Some(from) } => format!("Imported from {from}"),
         Reason::Imported { from: None } => "Imported".to_owned(),
         Reason::Installed => "Installed from Explore".to_owned(),
@@ -178,9 +212,7 @@ pub(super) fn why(skill: &ChangedSkill) -> Option<String> {
             version_day(*at, &chrono::Local::now())
         ),
         Reason::Record => "Record added".to_owned(),
-        Reason::Outside if skill.kind == ChangeKind::Removed => {
-            "Removed outside SkillBinder".to_owned()
-        }
+        Reason::Outside if kind == ChangeKind::Removed => "Removed outside SkillBinder".to_owned(),
         Reason::Outside => "Changed outside SkillBinder".to_owned(),
     })
 }
@@ -251,6 +283,70 @@ where
         day.format("%b %-d").to_string()
     } else {
         day.format("%b %-d, %Y").to_string()
+    }
+}
+
+/// What the Resolve dialog opens with (Y9), naming the remote's `device`.
+pub(super) fn resolve_intro(device: &str, count: usize) -> String {
+    let which = if count == 1 {
+        "this skill"
+    } else {
+        "these skills"
+    };
+    format!(
+        "This device and {device} both changed {which}. Choose the version to keep. The other is \
+         still in History."
+    )
+}
+
+/// One side's card in the Resolve dialog (Y9): whose version it is, and its why and time, or
+/// "Not pushed" for this device's.
+pub(super) fn side_card(
+    side: Side,
+    version: &ConflictSide,
+    device: &str,
+    now: DateTime<Utc>,
+) -> (String, String) {
+    let name = match side {
+        Side::Local => format!("This device ({device})"),
+        Side::Remote => version
+            .device
+            .clone()
+            .unwrap_or_else(|| "The remote".to_owned()),
+    };
+    let when = match side {
+        Side::Local => Some("Not pushed".to_owned()),
+        Side::Remote => version.at.and_then(from_unix).map(|at| relative(at, now)),
+    };
+    let detail = [why_changed(version.kind, version.reason.as_ref()), when]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>()
+        .join(" · ");
+    (name, detail)
+}
+
+/// Under the Resolve dialog's choices (Y9): how many skills changed on one side only.
+pub(super) fn merge_on_their_own(count: usize) -> String {
+    match count {
+        1 => "1 other skill changed on only one side and merges on its own.".to_owned(),
+        count => format!("{count} other skills changed on only one side and merge on their own."),
+    }
+}
+
+/// What an incoming row that changed on both sides ends with once chosen (Y5).
+pub(super) fn chosen(side: Side) -> &'static str {
+    match side {
+        Side::Local => "Keeping this device's",
+        Side::Remote => "Taking this one",
+    }
+}
+
+/// A merge's choice in History (Y6): "Kept <device>'s <slug>".
+pub(super) fn kept(device: Option<&str>, slug: &str) -> String {
+    match device {
+        Some(device) => format!("Kept {device}'s {slug}"),
+        None => format!("Kept the remote's {slug}"),
     }
 }
 

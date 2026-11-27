@@ -1,6 +1,7 @@
 #![allow(clippy::unwrap_used)]
+use super::status::changed_files;
 use super::*;
-use skillbinder_proto::Reason;
+use skillbinder_proto::{Reason, SyncState};
 use std::{fs, path::PathBuf};
 use tempfile::TempDir;
 
@@ -20,6 +21,12 @@ impl Committer for Unnamed {
         Ok(BTreeMap::new())
     }
     fn committed(&self) -> AppResult<()> {
+        Ok(())
+    }
+    fn merging(&self, _: &Merge) -> AppResult<()> {
+        Ok(())
+    }
+    fn merged(&self) -> AppResult<()> {
         Ok(())
     }
 }
@@ -372,7 +379,7 @@ fn fresh_library_connect_is_fetch_only_then_sync_adopts_remote() {
 }
 
 #[test]
-fn fresh_library_with_managed_payload_refuses_adoption() {
+fn fresh_library_with_managed_payload_merges_instead_of_adopting() {
     let f = Fixture::new();
     f.push();
     let fresh = f._root.path().join("fresh");
@@ -381,13 +388,22 @@ fn fresh_library_with_managed_payload_refuses_adoption() {
     fs::write(fresh.join("skills/local/SKILL.md"), "local").unwrap();
     assert!(
         f.git
-            .perform(&fresh, Some(&f.remote), SyncAction::Sync)
+            .perform(&fresh, Some(&f.remote), SyncAction::Pull)
             .is_err()
     );
+    f.git
+        .perform(&fresh, Some(&f.remote), SyncAction::Sync)
+        .unwrap();
     assert_eq!(
         fs::read_to_string(fresh.join("skills/local/SKILL.md")).unwrap(),
         "local"
     );
+    assert_eq!(
+        fs::read_to_string(fresh.join("skills/demo/SKILL.md")).unwrap(),
+        "initial"
+    );
+    let parents = f.git.output(&fresh, &["log", "-1", "--format=%P"]).unwrap();
+    assert_eq!(parents.split_whitespace().count(), 2);
 }
 
 #[test]
