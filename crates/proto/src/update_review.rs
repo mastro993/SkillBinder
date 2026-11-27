@@ -16,10 +16,13 @@ pub struct UpdateReview {
     pub from: String,
     /// The Git tree id of the fetched content the changes end at.
     pub to: String,
+    /// Whether the library content differs from the skill's record, such as after an edit made
+    /// outside SkillBinder, so the update also replaces those edits.
+    pub drifted: bool,
     /// Each file the update adds, changes, or removes, sorted by path.
     pub files: Vec<ReviewedFile>,
-    /// The changes as one Git-style unified patch, in the order of `files`, each file with its
-    /// whole text as context.
+    /// The changes as one Git-style unified patch, in the order of `files`, each file shown in
+    /// lines with its whole text as context.
     pub patch: String,
 }
 
@@ -39,10 +42,31 @@ pub struct ReviewedFile {
     pub path: String,
     /// How the update changes it.
     pub change: FileChange,
-    /// Lines added; none for a binary file.
+    /// Lines added; none for a file not shown in lines.
     pub additions: u64,
-    /// Lines removed; none for a binary file.
+    /// Lines removed; none for a file not shown in lines.
     pub deletions: u64,
+    /// How the review shows it.
+    pub shown: Shown,
+}
+
+/// How a review shows a changed file (R5).
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum Shown {
+    /// Its changed lines, in the patch.
+    Lines,
+    /// One line, since Git would read a side as binary; each side's size in bytes, absent for a
+    /// side without the file.
+    Binary {
+        /// The library content's size.
+        before: Option<u64>,
+        /// The fetched content's size.
+        after: Option<u64>,
+    },
+    /// One line, since a side is over the skill page's 128 KiB preview limit.
+    TooLarge,
+    /// One line, since the changes before it reached the patch's cap.
+    PastCap,
 }
 
 /// How an update changes a file.

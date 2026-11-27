@@ -1,9 +1,9 @@
 //! Every shape the review's patch takes reads back through GPUI Kit's `Diff` parser, which the
 //! window draws it with, with the same files, statuses, and figures.
 
-use super::{Files, build};
+use super::{Files, PATCH_CAP, build};
 use gpui_kit::component::diff::{DiffFile, DiffFileStatus};
-use skillbinder_proto::{FileChange, ReviewedFile};
+use skillbinder_proto::{FileChange, ReviewedFile, Shown};
 
 fn side<'a>(files: &[(&'a str, &'a str, bool)]) -> Files<'a> {
     files
@@ -122,10 +122,85 @@ fn binary_or_non_utf8_content_is_one_line_not_garbage() {
     let (files, parsed, patch) = parsed(&before, &after);
     assert!(parsed.iter().all(DiffFile::is_binary), "{patch}");
     assert!(patch.contains("Binary files /dev/null and b/latin1.txt differ"));
+    let shown: Vec<_> = files
+        .iter()
+        .map(|file| (file.path.as_str(), file.shown))
+        .collect();
+    assert_eq!(
+        shown,
+        [
+            (
+                "latin1.txt",
+                Shown::Binary {
+                    before: None,
+                    after: Some(5)
+                }
+            ),
+            (
+                "logo.png",
+                Shown::Binary {
+                    before: Some(6),
+                    after: Some(6)
+                }
+            ),
+        ]
+    );
     assert!(
         files
             .iter()
             .all(|file| file.additions + file.deletions == 0)
+    );
+}
+
+#[test]
+fn a_text_file_over_the_preview_limit_on_either_side_shows_without_lines() {
+    let large = "a line of text\n".repeat(200 * 1024 / 15);
+    let (files, parsed, patch) = parsed(
+        &side(&[("big.md", &large, false), ("SKILL.md", "old\n", false)]),
+        &side(&[("big.md", "small\n", false), ("SKILL.md", "new\n", false)]),
+    );
+    let shown: Vec<_> = files
+        .iter()
+        .map(|file| (file.path.as_str(), file.shown))
+        .collect();
+    assert_eq!(
+        shown,
+        [("SKILL.md", Shown::Lines), ("big.md", Shown::TooLarge)]
+    );
+    assert_eq!(parsed[1].status(), DiffFileStatus::Modified);
+    assert!(
+        !patch.contains("a line of text"),
+        "big.md's lines are not in the patch"
+    );
+}
+
+#[test]
+fn files_whose_lines_pass_the_cap_show_without_them_and_so_do_all_later_ones() {
+    // Each file is under the preview limit; together they pass the cap.
+    let text = "x".repeat(99) + "\n";
+    let chunk = text.repeat(1200);
+    let names: Vec<String> = (0..40).map(|ix| format!("part-{ix:02}.md")).collect();
+    let mut after: Vec<(&str, &str, bool)> = names
+        .iter()
+        .map(|name| (name.as_str(), chunk.as_str(), false))
+        .collect();
+    after.push(("zz.md", "small\n", false));
+    let (files, _, patch) = parsed(&side(&[]), &side(&after));
+    assert!(
+        patch.len() <= PATCH_CAP + 64 * files.len(),
+        "only headers pass the cap"
+    );
+    let first = files
+        .iter()
+        .position(|file| file.shown == Shown::PastCap)
+        .unwrap_or_else(|| panic!("the cap is reached"));
+    assert!(first > 0);
+    assert!(files[..first].iter().all(|file| file.shown == Shown::Lines));
+    // A small file after the cap shows without its lines too.
+    assert!(
+        files[first..]
+            .iter()
+            .all(|file| file.shown == Shown::PastCap && file.additions == 0)
     );
 }
 

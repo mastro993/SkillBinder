@@ -3,17 +3,19 @@
 //! from the skill's library content to the fetched content as one stacked list of files, and
 //! nothing is written until its Update is clicked. Update lands only the version shown; when the
 //! source or the library content moved since, the dialog shows the changes now and asks again.
+//! A fetch that failed can be retried; content an update would refuse says why, without Retry.
 
+mod notes;
 mod render;
 
 use super::{DialogState, Effect, NativeView, Route};
 use gpui_kit::component::diff::DiffState;
 use gpui_kit::{Context, Entity};
-use skillbinder_design::diff_state;
+use skillbinder_design::{FileNote, diff_state};
 use skillbinder_proto::{
-    AppError, AppResult, Moved, ReviewedOutcome, ReviewedUpdate, SkillId, UpdateOutcome,
-    UpdateReview,
+    AppResult, Moved, ReviewedOutcome, ReviewedUpdate, SkillId, UpdateOutcome, UpdateReview,
 };
+use std::rc::Rc;
 
 /// The open review dialog.
 pub(super) struct ReviewDialog {
@@ -29,12 +31,18 @@ enum Phase {
     Ready {
         review: Box<UpdateReview>,
         diff: Entity<DiffState>,
+        /// Why files show without their lines (R5).
+        notes: Rc<[FileNote]>,
         /// Why these changes replaced the reviewed ones (R9).
         moved: Option<Moved>,
         updating: bool,
     },
-    /// The review or Update failed, as a plain error.
-    Failed(String),
+    /// The review or Update failed (R10).
+    Failed {
+        message: String,
+        /// Whether fetching again can help, as it can after a fetch failure but not a refusal.
+        retry: bool,
+    },
 }
 
 impl NativeView {
@@ -53,9 +61,15 @@ impl NativeView {
         );
     }
 
+    /// Whether Update in the dialog is refused: while another change, an Update all, or a Git
+    /// operation runs (behavior 7).
+    fn update_refused(&self) -> bool {
+        self.blocked() || self.snapshot.syncing.is_some()
+    }
+
     /// Updates the skill the dialog shows, as reviewed.
     fn update_reviewed(&mut self, cx: &mut Context<Self>) {
-        if self.blocked() {
+        if self.update_refused() {
             return;
         }
         let DialogState::UpdateReview(dialog) = &mut self.dialog else {
@@ -81,6 +95,7 @@ impl NativeView {
 
     /// Shows what Update did: an update that landed or failed closes the dialog, and the page
     /// shows the result as Update's always did (A5); changes that moved replace the reviewed ones.
+    /// An error before any update, such as Git gone, shows as itself, since no fetch failed.
     pub(super) fn update_landed(
         &mut self,
         outcome: AppResult<ReviewedOutcome>,
@@ -90,15 +105,27 @@ impl NativeView {
             return;
         };
         let id = dialog.id.clone();
+        let outcome = match outcome {
+            Ok(outcome) => outcome,
+            Err(error) => {
+                if let DialogState::UpdateReview(dialog) = &mut self.dialog {
+                    dialog.phase = Phase::Failed {
+                        message: error.message,
+                        retry: false,
+                    };
+                }
+                cx.notify();
+                return;
+            }
+        };
         match outcome {
-            Ok(ReviewedOutcome::Updated(outcome)) => {
+            ReviewedOutcome::Updated(outcome) => {
                 self.dialog = DialogState::None;
                 self.show_update_outcome(outcome, cx);
             }
-            Ok(ReviewedOutcome::Moved { moved, review }) => {
+            ReviewedOutcome::Moved { moved, review } => {
                 self.reviewed_changes(&id, Ok(*review), Some(moved), cx);
             }
-            Err(error) => self.reviewed_changes(&id, Err(error), None, cx),
         }
     }
 
@@ -127,19 +154,27 @@ impl NativeView {
         if &dialog.id != id {
             return;
         }
-        dialog.phase = match review.and_then(|review| {
-            let diff = diff_state(&review.patch, cx).map_err(|error| {
-                AppError::validation("These changes could not be shown.").because(error)
-            })?;
-            Ok((review, diff))
-        }) {
-            Ok((review, diff)) => Phase::Ready {
-                review: Box::new(review),
-                diff,
-                moved,
-                updating: false,
+        dialog.phase = match review {
+            Ok(review) => {
+                let notes = notes::notes(&review);
+                match diff_state(&review.patch, &notes, cx) {
+                    Ok(diff) => Phase::Ready {
+                        review: Box::new(review),
+                        diff,
+                        notes,
+                        moved,
+                        updating: false,
+                    },
+                    Err(_) => Phase::Failed {
+                        message: "These changes could not be shown.".to_owned(),
+                        retry: false,
+                    },
+                }
+            }
+            Err(error) => Phase::Failed {
+                message: format!("Couldn't fetch {id}'s source: {}", error.message),
+                retry: error.retryable,
             },
-            Err(error) => Phase::Failed(error.message),
         };
         cx.notify();
     }

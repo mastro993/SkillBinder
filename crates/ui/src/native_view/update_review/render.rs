@@ -1,6 +1,7 @@
 //! The review dialog's frame: "Update <slug>" with the source and summary under it (R2), the
-//! fetching line (R7), the changes under any moved notice (R3, R4, R9), or the error, and the
-//! footer's note, Cancel, and Update (R6, R11).
+//! fetching line (R7), the changes under any drift and moved notices (R3–R5, R8, R9), or why the
+//! source couldn't be fetched with Retry when it can help (R10), and the footer's note, Cancel,
+//! and Update (R6, R11).
 
 use super::super::NativeView;
 use super::super::explore::repository_glyph;
@@ -8,7 +9,8 @@ use super::{Phase, ReviewDialog};
 use gpui_kit::component::dialog::Dialog;
 use gpui_kit::component::{Sizable, h_flex, v_flex};
 use gpui_kit::{
-    AnyElement, Context, InteractiveElement, IntoElement, ParentElement, Pixels, Size, Styled, px,
+    AnyElement, Context, InteractiveElement, IntoElement, ParentElement, Pixels, Size, Styled,
+    prelude::FluentBuilder, px,
 };
 use skillbinder_design::tokens::{space, text};
 use skillbinder_design::{
@@ -30,7 +32,7 @@ impl NativeView {
         let header = DialogHeader::new(format!("Update {slug}"));
         let header = match &review.phase {
             Phase::Ready { review, .. } => header.detail(summary(review)),
-            Phase::Fetching | Phase::Failed(_) => header,
+            Phase::Fetching | Phase::Failed { .. } => header,
         };
         let frame = self
             .dialog_frame(DialogSize::Window(viewport), header, cx)
@@ -51,16 +53,38 @@ impl NativeView {
                 )
                 .turning("refresh-04"),
             )),
-            Phase::Failed(message) => frame.apply(dialog, cx).child(centered(
-                Notice::new("update-review-failed", message.clone()).status(Status::Danger),
-            )),
-            Phase::Ready { diff, moved, .. } => {
+            Phase::Failed { message, retry } => {
+                let failed = centered(
+                    Notice::new("update-review-failed", message.clone()).status(Status::Danger),
+                )
+                .gap(px(space::SM))
+                .when(*retry, |failed| {
+                    let id = slug.clone();
+                    failed.child(
+                        Button::new("update-review-retry")
+                            .label("Retry")
+                            .small()
+                            .on_click(cx.listener(move |view, _, _, cx| {
+                                view.review_update(id.clone(), cx);
+                            })),
+                    )
+                });
+                frame.apply(dialog, cx).child(failed)
+            }
+            Phase::Ready {
+                review,
+                diff,
+                notes,
+                moved,
+                ..
+            } => {
                 let body = v_flex()
                     .flex_1()
                     .min_h_0()
                     .gap(px(space::LG))
+                    .when(review.drifted, |body| body.child(drift_notice(slug)))
                     .children(moved.map(|moved| moved_notice(slug, moved)))
-                    .child(DiffView::new(diff).flex_1());
+                    .child(DiffView::new(diff).notes(notes.clone()).flex_1());
                 frame.body(body).apply(dialog, cx)
             }
         }
@@ -69,15 +93,14 @@ impl NativeView {
     /// "Nothing changes until you update.", then Cancel and Update (R6); Update shows
     /// "Updating…" while it runs, and only changes can be updated.
     fn review_footer(&self, review: &ReviewDialog, cx: &mut Context<Self>) -> DialogFooter {
-        let (ready, updating) = match &review.phase {
-            Phase::Ready { updating, .. } => (true, *updating),
-            Phase::Fetching | Phase::Failed(_) => (false, false),
-        };
+        let updating = matches!(review.phase, Phase::Ready { updating: true, .. });
         let update = Button::new("update-review-update")
             .label(if updating { "Updating…" } else { "Update" })
             .primary()
             .loading(updating)
-            .inactive(!ready || self.working())
+            // Inactive until changes show, and while other work runs (behavior 7); the view
+            // renders again on each snapshot, so it turns active once that work ends.
+            .inactive(!matches!(review.phase, Phase::Ready { .. }) || self.update_refused())
             .on_click(cx.listener(|view, _, _, cx| view.update_reviewed(cx)));
         DialogFooter::new()
             .leading(
@@ -139,6 +162,17 @@ fn files_changed(count: usize) -> String {
         1 => "· 1 file changed ·".to_owned(),
         count => format!("· {count} files changed ·"),
     }
+}
+
+/// The skill's local edits, which the changes show as removed lines (R8).
+fn drift_notice(slug: &SkillId) -> Notice {
+    Notice::new("update-review-drifted", drift_text(slug)).status(Status::Warning)
+}
+
+fn drift_text(slug: &SkillId) -> String {
+    format!(
+        "{slug} was changed outside SkillBinder. Updating replaces those changes too; they show as removed lines."
+    )
 }
 
 /// Why the changes shown replaced the reviewed ones (R9).
