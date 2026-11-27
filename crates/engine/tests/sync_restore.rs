@@ -149,7 +149,7 @@ async fn discard_returns_each_kind_of_change_to_the_base() {
     let scan = device.fixture.scan(&device.engine).await;
     let candidate = scan.candidates.iter().find(|c| c.slug == "delta").unwrap();
     device.fixture.import_one(&device.engine, candidate).await;
-    let claude = device.activate(&["alpha", "delta"]).await;
+    let claude = device.activate(&["alpha", "beta", "delta"]).await;
     let skills = device.library().join("skills");
     write_skill(&skills, "alpha", "Edited here");
     fs::remove_dir_all(skills.join("beta")).unwrap();
@@ -186,6 +186,16 @@ async fn discard_returns_each_kind_of_change_to_the_base() {
     assert!(body(&skills, "alpha").contains("First version"));
     assert!(body(&claude, "alpha").contains("First version"));
     assert!(body(&skills, "beta").contains("First version"));
+    // A skill removed outside SkillBinder comes back unfiled and in no preset, so its copy goes.
+    let beta = device.library_snapshot().await;
+    let beta = beta
+        .library
+        .skills
+        .iter()
+        .find(|skill| skill.id.as_str() == "beta")
+        .unwrap();
+    assert_eq!((beta.folder_id.as_ref(), beta.presets.len()), (None, 0));
+    assert!(!claude.join("beta").exists());
     assert!(!skills.join("delta").exists());
     // The agent's copy of the discarded add stays, no longer managed.
     assert!(body(&claude, "delta").contains("Added here"));

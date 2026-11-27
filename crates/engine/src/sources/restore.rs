@@ -45,7 +45,7 @@ impl State {
         };
         let at = git.commit_time(&repo, &version)?;
         self.put_version(&git, slug, &version, Some(Reason::Restored { at }))?;
-        self.apply_library();
+        self.apply_skill(slug);
         Ok(())
     }
 
@@ -72,7 +72,7 @@ impl State {
             Some(base) => self.put_version(&git, slug, &base, None)?,
             None => self.staged(|state, staging| state.drop_added(slug, staging))?,
         }
-        self.apply_library();
+        self.apply_skill(slug);
         Ok(())
     }
 
@@ -93,6 +93,12 @@ impl State {
         let record: Option<Record> = git
             .record_at(&repo, commit, slug, MAX_RECORD_BYTES)?
             .and_then(|text| records::parse(&text).ok());
+        // A skill whose directory was removed outside SkillBinder keeps its row until the next
+        // reconcile; dropping it now, as that reconcile would, brings the skill back unfiled and
+        // in no preset.
+        if !self.skill_dirs()?.contains(slug) {
+            crate::library_store::delete_skill(&mut self.database.borrow_mut(), slug)?;
+        }
         let library = self.read_library()?;
         let current = library
             .skills

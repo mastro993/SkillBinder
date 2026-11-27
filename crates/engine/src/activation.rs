@@ -220,6 +220,14 @@ impl State {
         self.quietly(Scope::Slugs(slugs));
     }
 
+    /// Brings every copy of skill `slug` in line after Restore or Discard changed it: rewritten
+    /// for its new content, written or removed where it is now active or not, and, for a skill
+    /// that left the library, nothing, since its copies were forgotten. Failures wait for the
+    /// next scan.
+    pub(crate) fn apply_skill(&self, slug: &str) {
+        self.quietly(Scope::Slugs(BTreeSet::from([slug.to_owned()])));
+    }
+
     /// Tries again every directory that may not hold what it should, as each scan does: it
     /// retries failures, writes the copies an agent detected later needs once it is yours, and
     /// notices copies that were deleted.
