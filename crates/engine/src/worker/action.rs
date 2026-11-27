@@ -100,6 +100,8 @@ actions! {
     Disconnect => Sync, Change, "disconnect";
     RenameDevice => Sync, Change, "device rename";
     History => Sync, Detail, "history";
+    RestoreSkill => Sync, Change, "restore";
+    DiscardChange => Sync, Change, "discard";
     RefreshCatalog => Explore, Job, "catalog refresh";
     ListRepository => Explore, Detail, "repository list";
     AddRepository => Explore, Change, "repository add";

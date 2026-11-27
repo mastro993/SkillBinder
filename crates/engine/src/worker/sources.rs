@@ -1,5 +1,5 @@
-//! The engine's skill source operations: update checks on their own thread, Update, and
-//! Reinstall.
+//! The engine's skill source operations: update checks on their own thread, Update, Reinstall,
+//! and Sync's Restore and Discard, which replace a skill's content the same way.
 
 use super::{
     Engine,
@@ -89,6 +89,28 @@ impl Engine {
         let subject = vec![("slug", id.to_string())];
         self.action(Action::ReinstallSkill, subject, |engine| async move {
             engine.call(move |state| state.reinstall_skill(id)).await
+        })
+        .await
+    }
+    /// Puts skill `id` back to its version in the History change `commit`, or brings it back
+    /// from the change before when `commit` removed it, as a change on this device (ADR 0040).
+    pub async fn restore_skill(&self, id: SkillId, commit: String) -> AppResult<()> {
+        let subject = vec![("slug", id.to_string()), ("commit", commit.clone())];
+        self.action(Action::RestoreSkill, subject, |engine| async move {
+            engine
+                .call(move |state| state.restore_version(id.as_str(), &commit))
+                .await
+        })
+        .await
+    }
+    /// Undoes this device's change to skill `id` not pushed yet, putting it back as it was at
+    /// the base; one added since then leaves the library, its copies kept unmanaged (ADR 0040).
+    pub async fn discard_change(&self, id: SkillId) -> AppResult<()> {
+        let subject = vec![("slug", id.to_string())];
+        self.action(Action::DiscardChange, subject, |engine| async move {
+            engine
+                .call(move |state| state.discard_change(id.as_str()))
+                .await
         })
         .await
     }

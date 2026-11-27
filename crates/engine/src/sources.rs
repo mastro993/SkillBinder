@@ -4,6 +4,7 @@
 mod apply;
 mod checks;
 pub(crate) mod lock;
+mod restore;
 
 pub(crate) use checks::{Updates, check};
 

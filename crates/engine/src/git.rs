@@ -29,6 +29,8 @@ use std::{
 };
 
 const REMOTE_REF: &str = "refs/skillbinder/incoming";
+/// The tree with no entries, the base of a library that shares no commit with its remote.
+const EMPTY_TREE: &str = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 /// The managed paths, skill directories and their records: Sync and Push commit nothing else.
 const MANAGED: [&str; 2] = ["skills", "records"];
 

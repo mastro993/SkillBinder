@@ -238,6 +238,17 @@ fn each_skill_says_how_and_why_it_changed() {
     ] {
         assert_eq!(why_of(kind, reason).as_deref(), expected);
     }
+    let today = chrono::Local::now();
+    let restored = Reason::Restored {
+        at: today.timestamp().unsigned_abs(),
+    };
+    assert_eq!(
+        why_of(ChangeKind::Changed, Some(restored)),
+        Some(format!(
+            "Restored to the version of {}",
+            today.format("%b %-d")
+        ))
+    );
     assert_eq!(kind(ChangeKind::Added), ("+", "Added", Tint::Success));
     assert_eq!(kind(ChangeKind::Changed), ("~", "Changed", Tint::Accent));
     assert_eq!(kind(ChangeKind::Removed), ("−", "Removed", Tint::Danger));
@@ -251,4 +262,40 @@ fn the_remote_s_group_says_when_its_newest_change_was_made() {
     assert_eq!(not_pulled(&pulled, now()), "Just now · Not pulled");
     pulled.at = Some(NOW.unsigned_abs() - 7_200);
     assert_eq!(not_pulled(&pulled, now()), "2 hours ago · Not pulled");
+}
+
+#[test]
+fn a_restored_version_names_its_day_with_the_year_only_when_it_differs() {
+    let day = |at: i64| version_day(at.unsigned_abs(), &now());
+    // 2027-01-15, the year of NOW, then a day of the year before.
+    assert_eq!(day(NOW), "Jan 15");
+    assert_eq!(day(NOW - 86_400 * 365), "Jan 15, 2026");
+}
+
+#[test]
+fn discard_and_restore_ask_what_they_do() {
+    let skill = |kind| ChangedSkill {
+        slug: "review".to_owned(),
+        kind,
+        reason: None,
+    };
+    let (title, added) = discard_question(&skill(ChangeKind::Added));
+    assert_eq!(title, "Discard your change to review?");
+    assert!(added.ends_with("Copies your agents have stay where they are."));
+    let (_, removed) = discard_question(&skill(ChangeKind::Removed));
+    assert!(removed.contains("in no preset"));
+    assert_eq!(
+        discard_tip(ChangeKind::Changed),
+        "Go back to the last synced version"
+    );
+    let (title, _, confirm) = restore_question("review", false, "Wed, Nov 12", "09:15");
+    assert_eq!(
+        (title.as_str(), confirm),
+        ("Restore review to Wed, Nov 12, 09:15?", "Restore")
+    );
+    let (title, _, confirm) = restore_question("review", true, "Today", "09:15");
+    assert_eq!(
+        (title.as_str(), confirm),
+        ("Bring back review?", "Bring back")
+    );
 }

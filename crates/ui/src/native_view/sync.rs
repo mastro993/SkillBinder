@@ -6,10 +6,12 @@ mod copy;
 mod dialogs;
 mod history;
 mod pending;
+mod restore;
 mod setup;
 mod status;
 
 pub(super) use history::HistoryPages;
+pub(super) use restore::Restoring;
 
 use super::{Effect, NativeView};
 use gpui_kit::component::v_flex;
@@ -62,6 +64,10 @@ impl NativeView {
             return self.sync_setup(cx);
         };
         self.follow_history(cx);
+        let snapshot = self.snapshot.clone();
+        let discards = (snapshot.sync.local.iter())
+            .map(|skill| self.discard_button(skill, cx))
+            .collect();
         v_flex()
             .id("sync-page")
             .w_full()
@@ -72,6 +78,7 @@ impl NativeView {
             .children(pending::pending(
                 &self.snapshot.sync,
                 chrono::Utc::now(),
+                discards,
                 cx,
             ))
             .children(self.sync_history(cx))

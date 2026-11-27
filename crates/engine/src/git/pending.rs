@@ -5,7 +5,7 @@
 //! either has none.
 
 use super::note::{DEVICE, SKILL, kind, skill_trailer};
-use super::{Git, failure, process, record_of, skill_of};
+use super::{EMPTY_TREE, Git, MANAGED, REMOTE_REF, failure, process, record_of, skill_of};
 use skillbinder_proto::{AppResult, ChangedSkill, Incoming, Reason};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -25,7 +25,8 @@ struct Notes {
 
 impl Git {
     /// The skills changed on this device and on the remote since the base. `status` is the
-    /// managed paths' porcelain status, whose changes count on this device's side. A local
+    /// managed paths' porcelain status, whose untracked entries count on this device's side,
+    /// beside the files that differ from the base. A local
     /// skill's why is its `recorded` reason, else the newest one an unpushed commit carries, else
     /// `Outside`.
     pub(super) fn pending(
@@ -45,12 +46,11 @@ impl Git {
             Some(base) => self.skill_dirs(repo, base)?,
             None => BTreeSet::new(),
         };
-        let mut here = changed_paths(status);
-        let mut unpushed = Notes::default();
-        if let Some(local) = local.filter(|local| Some(*local) != base) {
-            here.extend(self.changed_skills(repo, base, local)?);
-            unpushed = self.notes(repo, base, local)?;
-        }
+        let here = self.net_changes(repo, base, status)?;
+        let unpushed = match local.filter(|local| Some(*local) != base) {
+            Some(local) => self.notes(repo, base, local)?,
+            None => Notes::default(),
+        };
         let local = changes(
             here,
             &before,
@@ -84,6 +84,52 @@ impl Git {
             None => None,
         };
         Ok((local, incoming))
+    }
+
+    /// The commit this device's changes count from: the merge base of its commit and the
+    /// remote's, or `None`, the empty tree, when either has none.
+    pub(crate) fn base(&self, repo: &Path) -> AppResult<Option<String>> {
+        match (
+            self.revision(repo, "HEAD")?,
+            self.revision(repo, REMOTE_REF)?,
+        ) {
+            (Some(local), Some(incoming)) => self.merge_base(repo, &local, &incoming),
+            _ => Ok(None),
+        }
+    }
+
+    /// The slugs whose files on disk differ from `base`, or from the empty tree without one:
+    /// tracked files Git compares, and the untracked and ignored ones `status` lists, which a
+    /// commit adds. A skill put back as it was at the base, even over a commit not pushed yet,
+    /// waits for nothing.
+    fn net_changes(
+        &self,
+        repo: &Path,
+        base: Option<&str>,
+        status: &str,
+    ) -> AppResult<BTreeSet<String>> {
+        let tracked = self.output(
+            repo,
+            &[
+                "diff",
+                "--no-ext-diff",
+                "--no-renames",
+                "--name-only",
+                "-z",
+                base.unwrap_or(EMPTY_TREE),
+                "--",
+                MANAGED[0],
+                MANAGED[1],
+            ],
+        )?;
+        let mut slugs = untracked_paths(status);
+        slugs.extend(
+            tracked
+                .split('\0')
+                .filter_map(|path| skill_of(path).or_else(|| record_of(path)))
+                .map(str::to_owned),
+        );
+        Ok(slugs)
     }
 
     /// What the commits after `base` up to `tip` say, or every commit up to `tip` without one.
@@ -162,15 +208,19 @@ fn changes(
     skills
 }
 
-/// The slugs of `git status --porcelain=v1 -z` entries; renames and copies carry a second path.
-fn changed_paths(status: &str) -> BTreeSet<String> {
+/// The slugs of the untracked and ignored entries of `git status --porcelain=v1 -z`; renames
+/// and copies carry a second path, which is skipped.
+fn untracked_paths(status: &str) -> BTreeSet<String> {
     let mut entries = status.split_terminator('\0');
     let mut paths = Vec::new();
     while let Some(entry) = entries.next() {
-        if entry.get(..2).is_some_and(|xy| xy.contains(['R', 'C'])) {
-            paths.extend(entries.next());
+        match entry.get(..2) {
+            Some(xy) if xy.contains(['R', 'C']) => {
+                entries.next();
+            }
+            Some("??" | "!!") => paths.extend(entry.get(3..)),
+            _ => {}
         }
-        paths.extend(entry.get(3..));
     }
     paths
         .into_iter()

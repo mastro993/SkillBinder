@@ -31,7 +31,14 @@ impl Record {
 }
 
 /// A record holds a tree id and a source; anything larger is not one.
-const MAX_RECORD_BYTES: u64 = 64 * 1024;
+pub(crate) const MAX_RECORD_BYTES: u64 = 64 * 1024;
+
+/// The record `text` holds, or why it holds none.
+pub(crate) fn parse(text: &str) -> Result<Record, String> {
+    toml::from_str::<Record>(text)
+        .map_err(|error| error.to_string())
+        .and_then(|record| valid(&record).map(|()| record))
+}
 
 /// The text of the record file at `path`; `None` when it is larger than `MAX_RECORD_BYTES`.
 fn read_bounded(path: &std::path::Path) -> std::io::Result<Option<String>> {
@@ -103,10 +110,7 @@ impl State {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
             Err(error) => return Err(storage::error_at("reading", &path)(error)),
         };
-        match toml::from_str::<Record>(&text)
-            .map_err(|error| error.to_string())
-            .and_then(|record| valid(&record).map(|()| record))
-        {
+        match parse(&text) {
             Ok(record) => Ok(Some(record)),
             Err(error) => {
                 self.log

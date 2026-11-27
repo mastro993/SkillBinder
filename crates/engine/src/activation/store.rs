@@ -76,6 +76,15 @@ pub(crate) fn forget(connection: &mut SqliteConnection, records: &[Pair]) -> App
     save(connection, &forgotten)
 }
 
+/// Forgets every record of skill `slug`, in your agents and in workspaces, leaving its copies in
+/// place, unmanaged.
+pub(crate) fn forget_skill(connection: &mut SqliteConnection, slug: &str) -> AppResult<()> {
+    diesel::delete(managed_copies::table.filter(managed_copies::slug.eq(slug)))
+        .execute(connection)
+        .map(drop)
+        .map_err(storage::error("forgetting a skill's managed copies"))
+}
+
 /// The workspace a record is held for, and its workspace skill directory the record is held
 /// through, such as `.claude/skills`.
 #[derive(Clone, Debug, Eq, PartialEq)]

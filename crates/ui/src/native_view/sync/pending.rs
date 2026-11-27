@@ -1,7 +1,9 @@
 //! Not synced yet (Y5): what a Push sends, under this device, and what a Pull brings, under the
-//! devices that changed it, each skill with its kind and why. Hidden while nothing waits.
+//! devices that changed it, each skill with its kind and why, and this device's with Discard.
+//! Hidden while nothing waits.
 
 use super::copy;
+use super::restore::ROW;
 use super::status::tinted;
 use chrono::{DateTime, Utc};
 use gpui_kit::component::{ActiveTheme, Sizable, h_flex, v_flex};
@@ -15,8 +17,13 @@ use skillbinder_design::{
 };
 use skillbinder_proto::{ChangedSkill, SyncSnapshot};
 
-/// The section, while anything waits on either side.
-pub(super) fn pending(sync: &SyncSnapshot, now: DateTime<Utc>, cx: &App) -> Option<AnyElement> {
+/// The section, while anything waits on either side; `discards` ends each of this device's rows.
+pub(super) fn pending(
+    sync: &SyncSnapshot,
+    now: DateTime<Utc>,
+    discards: Vec<AnyElement>,
+    cx: &App,
+) -> Option<AnyElement> {
     let incoming = sync
         .incoming
         .as_ref()
@@ -34,6 +41,7 @@ pub(super) fn pending(sync: &SyncSnapshot, now: DateTime<Utc>, cx: &App) -> Opti
             head,
             "Not pushed".to_owned(),
             &sync.local,
+            discards,
             cx,
         ));
     }
@@ -45,7 +53,14 @@ pub(super) fn pending(sync: &SyncSnapshot, now: DateTime<Utc>, cx: &App) -> Opti
             cx,
         );
         let end = copy::not_pulled(incoming, now);
-        groups.push(group("sync-incoming", head, end, &incoming.skills, cx));
+        groups.push(group(
+            "sync-incoming",
+            head,
+            end,
+            &incoming.skills,
+            Vec::new(),
+            cx,
+        ));
     }
     if groups.is_empty() {
         return None;
@@ -74,12 +89,14 @@ pub(super) fn pending(sync: &SyncSnapshot, now: DateTime<Utc>, cx: &App) -> Opti
     )
 }
 
-/// One side: its device and, at its end, `end`, over a row per skill.
+/// One side: its device and, at its end, `end`, over a row per skill, which ends with its
+/// element of `ends`, if any.
 fn group(
     id: &'static str,
     head: AnyElement,
     end: String,
     skills: &[ChangedSkill],
+    ends: Vec<AnyElement>,
     cx: &App,
 ) -> impl IntoElement {
     let head = h_flex()
@@ -94,11 +111,15 @@ fn group(
                 .level(text::CAPTION)
                 .muted(),
         );
-    v_flex()
-        .id(id)
-        .pb(px(space::XS))
-        .child(head)
-        .children(skills.iter().map(|skill| row(id, skill, None, cx)))
+    v_flex().id(id).pb(px(space::XS)).child(head).children(
+        (skills.iter())
+            .zip(
+                ends.into_iter()
+                    .map(Some)
+                    .chain(std::iter::repeat_with(|| None)),
+            )
+            .map(|(skill, end)| row(id, skill, end, cx)),
+    )
 }
 
 /// A device: the laptop glyph and its name in bold, with an outline "This device" tag for this
@@ -126,7 +147,8 @@ pub(super) fn device(id: SharedString, name: Option<String>, this: bool, cx: &Ap
         .into_any_element()
 }
 
-/// A skill: its kind mark, its slug in bold, why it changed in muted text, and `end` at its end.
+/// A skill: its kind mark, its slug in bold, why it changed in muted text, and `end` at its end,
+/// which the row's hover can show.
 pub(super) fn row(
     group: &str,
     skill: &ChangedSkill,
@@ -137,6 +159,7 @@ pub(super) fn row(
     let theme = cx.theme();
     h_flex()
         .id(SharedString::from(format!("{group}-{slug}")))
+        .group(ROW)
         .min_h(px(space::CONTROL_MD))
         .gap(px(space::MD))
         .px(px(space::LG))

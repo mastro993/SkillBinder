@@ -235,6 +235,8 @@ impl State {
             records,
             held,
             reasons,
+            cleared: Vec::new(),
+            dropped: Vec::new(),
         });
         if !self.recovery_required {
             let _ = fs::remove_dir_all(staging);

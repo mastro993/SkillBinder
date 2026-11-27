@@ -15,7 +15,7 @@ mod targets;
 
 pub(crate) use copies::STAGING_PREFIX;
 pub(crate) use progress::Progress;
-pub(crate) use store::{Holder, Pair, claim, forget};
+pub(crate) use store::{Holder, Pair, claim, forget, forget_skill};
 
 use crate::logging::{Area, Level};
 use crate::{agents::chosen_agents, database, payload, worker::State};

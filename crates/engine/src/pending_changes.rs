@@ -41,6 +41,14 @@ pub(crate) fn reasons(connection: &mut SqliteConnection) -> AppResult<BTreeMap<S
         .collect())
 }
 
+/// Forgets why `slug` changed, as Discard does once the slug is back as it was at the base.
+pub(crate) fn forget(connection: &mut SqliteConnection, slug: &str) -> AppResult<()> {
+    diesel::delete(pending_changes::table.find(slug))
+        .execute(connection)
+        .map(drop)
+        .map_err(storage::error("forgetting why a skill changed"))
+}
+
 /// Clears every row once a commit holds the library's managed files as they are, which leaves
 /// no change for any row to explain.
 pub(crate) fn clear(connection: &mut SqliteConnection) -> AppResult<()> {

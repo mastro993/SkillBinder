@@ -18,6 +18,7 @@ The audited shipped baseline is revision `83d55ef789a7cf256021f6620742e0e9021a83
 - [Activation progress](native/activation-progress.md)
 - [Workspace activation](native/workspace-activation.md)
 - [Synchronization, durability, and diagnostics](native/sync-and-durability.md)
+- [Sync: Not synced yet](native/sync-not-synced.md)
 - [Sync: History](native/sync-history.md)
 - [Acceptance evidence](native/acceptance-evidence.md)
 - [UI acceptance evidence](native/acceptance-evidence-ui.md)

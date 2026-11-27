@@ -112,6 +112,13 @@ pub(crate) struct Journal {
     /// Why each skill changed, by slug, which the next commit Push or Sync makes says.
     #[serde(default)]
     pub reasons: Vec<(String, Reason)>,
+    /// Slugs whose change is discarded, so no reason says why they changed any more.
+    #[serde(default)]
+    pub cleared: Vec<String>,
+    /// Skills the commit drops from the library, with their preset memberships and folder,
+    /// leaving their managed copies in place, unmanaged.
+    #[serde(default)]
+    pub dropped: Vec<String>,
 }
 /// One skill's record before and after a journaled change; `None` is no record.
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -355,6 +362,13 @@ impl State {
             crate::imports::placement::save(connection, &journal.held)?;
             for (slug, reason) in &journal.reasons {
                 crate::pending_changes::record(connection, slug, reason)?;
+            }
+            for slug in &journal.cleared {
+                crate::pending_changes::forget(connection, slug)?;
+            }
+            for slug in &journal.dropped {
+                crate::library_store::delete_skill(connection, slug)?;
+                crate::activation::forget_skill(connection, slug)?;
             }
             if let Some(outcome) = &journal.outcome {
                 record_outcome(connection, outcome)?;

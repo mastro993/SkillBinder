@@ -50,6 +50,8 @@ pub(super) enum ToastAction {
     RestoreRepository(Repository),
     /// Opens a SkillBinder release's page.
     ReleaseNotes(String),
+    /// Undoes a Restore, discarding the skill's change.
+    Discard(SkillId),
 }
 
 /// Whether a toast confirms a change or says what failed, under an optional title.
@@ -106,7 +108,11 @@ impl PendingToast {
             Tone::Done => (
                 !matches!(
                     action,
-                    Some(ToastAction::Undo(_) | ToastAction::RestoreRepository(_))
+                    Some(
+                        ToastAction::Undo(_)
+                            | ToastAction::RestoreRepository(_)
+                            | ToastAction::Discard(_)
+                    )
                 ),
                 None,
             ),
@@ -146,6 +152,7 @@ impl NativeView {
                 self.with_restore(toast, repository)
             }
             Some(ToastAction::ReleaseNotes(url)) => with_release_notes(toast, url),
+            Some(ToastAction::Discard(id)) => self.with_discard(toast, id, cx),
             None => toast,
         };
         let toast = self.hold_toast(toast, message, cx);
@@ -192,6 +199,42 @@ fn with_release_notes(toast: Notification, url: String) -> Notification {
                 .into_kit()
         })
         .autohide(true)
+}
+
+impl NativeView {
+    /// `toast` with Undo, which discards the change to skill `id` and closes the toast, or
+    /// leaves it open while the app is blocked.
+    fn with_discard(
+        &self,
+        toast: Notification,
+        id: SkillId,
+        cx: &mut Context<Self>,
+    ) -> Notification {
+        let view = cx.entity().downgrade();
+        toast
+            .action(move |_, _, cx| {
+                let (view, id) = (view.clone(), id.clone());
+                Button::new("toast-undo")
+                    .label("Undo")
+                    .on_click(cx.listener(move |toast, _, window, cx| {
+                        let id = id.clone();
+                        let done = view
+                            .update(cx, |view, cx| {
+                                let free = !view.blocked();
+                                if free {
+                                    view.discard(id, cx);
+                                }
+                                free
+                            })
+                            .unwrap_or(true);
+                        if done {
+                            toast.dismiss(window, cx);
+                        }
+                    }))
+                    .into_kit()
+            })
+            .autohide(true)
+    }
 }
 
 #[cfg(not(feature = "native-test"))]
