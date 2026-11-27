@@ -1,6 +1,6 @@
 # Domain documentation: plugins
 
-The vocabulary for agents' plugins (ADR 0034, ADR 0035), beside the library's in [domain.md](domain.md), whose rules apply here too. It is one context with one vocabulary; this file is split out only for size.
+The vocabulary for agents' plugins (ADR 0034, ADR 0041), beside the library's in [domain.md](domain.md), whose rules apply here too. It is one context with one vocabulary; this file is split out only for size.
 
 ## Vocabulary
 
@@ -12,6 +12,7 @@ The vocabulary for agents' plugins (ADR 0034, ADR 0035), beside the library's in
 - An agent can't use a plugin when its installer doesn't take any of the plugin's formats, such as Gemini CLI and a Claude Code plugin, or takes only a repository's root while the plugin lives in a folder of one, such as Pi and `frontend-design`. SkillBinder never converts a plugin.
 - A plugin is Off in an agent that installed it and turned it off; it is still installed. SkillBinder shows Off but never turns a plugin on or off.
 - A plugin is behind in an agent whose installed version is lower than the highest version another of your agents has installed. Only versions that compare as numbers can be behind. Update runs that agent's own plugin update.
-- A plugin skill is a skill a plugin ships, which its agent loads, often as `<plugin>:<skill>`. It is never a library skill or a found skill: it is not imported, installed, counted, or activated, and it changes only with its plugin. A library skill whose slug a plugin skill shares is "Also in plugin <name>".
+- A plugin skill is a skill a plugin ships, which its agent loads, often as `<plugin>:<skill>`. It is never a library skill or a found skill: it is not imported, installed, synced, or activated, and it changes only with its plugin. Library lists it among library skills with its plugin's chip, and an agent's page lists it when that agent loads it (ADR 0041). It is Active when its plugin is installed and on in at least one of your agents. A library skill whose slug a plugin skill shares is "Also in <plugin>".
+- The Plugins tab is Library's tab after All skills that lists your plugin agents' plugins; a plugin's page and its plugin skills' pages open under it. There is no Plugins page in the sidebar.
 
 Expand this vocabulary only when a domain type or an accepted behavior introduces a term.

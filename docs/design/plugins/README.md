@@ -6,19 +6,31 @@ This folder holds the prototypes for listing and managing the coding agents' plu
 
 | Area | Question | Prototype | Variant the user picked (2026-11-25) | Screenshot |
 |---|---|---|---|---|
-| Sidebar and plugin list | U1 | `prototypes/plugins-list.html` | A "Nav row → list" | ![The Plugins list: a Plugins row under Library and plugin rows with marketplace, description, skill count, and agent logos](screenshots/plugins-list.png) |
+| Library: plugin skills and the Plugins tab | U1, L1–L5 | `prototypes/library.html` | A "Mixed + Plugins tab" (2026-11-27; replaces the 2026-11-25 list A "Nav row → list" and the Library mark) | ![Library's All skills: library and plugin skills in one alphabetical list, plugin rows with a filled plugin chip and read-only agents, the library caveman marked Also in caveman](screenshots/library.png) ![Library's Plugins tab listing plugins with source, description, skill count, and agents](screenshots/library-plugins-tab.png) |
+| Agent page | L4 | `prototypes/library.html`, state Agent page | A (one list, as Library) | ![Claude Code's page listing its library skills and the plugin skills it loads, each plugin skill with its chip](screenshots/agent-page.png) |
 | Plugin page | U2 | `prototypes/plugin-page.html` | C "Agents first, stacked" | ![The fstack plugin page: header, Agents card with Install, Update, and Uninstall, then Skills](screenshots/plugin-page.png) |
 | Plugin skill view | U3 | `prototypes/plugin-skill.html` | A "Own page" | ![The feature-design plugin skill page with a From plugin fstack chip, front matter, and SKILL.md](screenshots/plugin-skill.png) |
 | Install dialog | P11 | `prototypes/plugin-page.html`, Install on Droid | (one design) | ![Install fstack in Droid? naming its source, 10 skills, the marketplace step, and both commands](screenshots/install-dialog.png) |
-| Library mark | P3 | `prototypes/plugin-skill.html`, state Library mark | (one design) | ![Library rows caveman, caveman-commit, and rust-best-practices with an Also in plugin chip](screenshots/library-mark.png) |
 
 Round 4 (after researching all 79 agents) changed rules the prototypes predate, and decisions.md holds: Codex now has Install and Uninstall rather than a hint, app-only agents such as Cursor are not in the first version, the marketplace line reads as the plugin's source, and an agent that can't use a plugin's format shows "Not installed · <agent> can't use this plugin" (P9), a state the prototypes don't draw.
 
-Each bundle opens on the picked variant. The variant bar still switches to the rejected ones: list B "Nav row → table" and C "Sidebar section", page A "Tabs" and B "Body + side column", skill view B "Dialog".
+On 2026-11-27 the owner moved plugins into Library (ADR 0041): `plugins-list.html` and the Library mark in `plugin-skill.html` are superseded by `library.html`, and their crumbs and sidebar row predate it; decisions.md holds. Each bundle opens on the picked variant. The variant bar still switches to the rejected ones: list B "Nav row → table" and C "Sidebar section", page A "Tabs" and B "Body + side column", skill view B "Dialog".
 
 Open a bundle in a browser. Its variant bar switches variants in place, and the segmented control beside it switches states. Clicks work: Install, Update, and Uninstall run against an in-memory store, so a change made on one page shows on every other.
 
+## library.html
+
+Plugin skills in Library and plugins managed from its Plugins tab (ADR 0041, decisions L1–L5).
+
+- **A "Mixed + Plugins tab"** (picked): plugin skills sit among library skills under All skills, alphabetically, each with a filled chip naming its plugin and, in place of the placement area, the agents that have the plugin and a chevron, read-only; the chip and the agents open the plugin. A library skill sharing a slug adds the outline mark "Also in caveman". A Plugins tab after All skills lists the plugins; a plugin opens under Library › Plugins. Like the Installed for you tag in Wix Automations.
+- **B "Grouped by plugin"**: library skills first, then one collapsible group per plugin with its source, agents, and Manage. Like the tool groups of Claude's Figma connector.
+- **C "Plugin tabs"**: mixed as A, plus a tab per plugin after the folders, opening with the plugin's agents above its skills. Like Wix's Created by you | Installed for you tabs.
+
+States: Library, Agent page (Claude Code's page: its library skills and the plugin skills it loads, in A's one list or B's groups), and Can't read (GitHub Copilot's records unreadable). Off `frontend-design` shows its skill dimmed under Inactive. The URL hash `#tab=plugins` or `#route=plugin&pid=fstack` opens a view directly, for screenshots.
+
 ## plugins-list.html
+
+Superseded by `library.html` (2026-11-27).
 
 Where Plugins sits in the sidebar, and how the plugin list reads.
 
@@ -67,7 +79,7 @@ States: feature-design (`fstack/feature-design`), Also in Library (`caveman/cave
 
 `source/` holds the editable pages and their shared files. They link the shared kit in `../scoped-pages/source/kit/`.
 
-- `plugins-list.html`, `plugin-page.html`, `plugin-skill.html`: the pages.
+- `library.html`, `plugins-list.html`, `plugin-page.html`, `plugin-skill.html`: the pages.
 - `plugins.css`: shared styles on the kit's tokens.
 - `plugins-text.js`: README.md and SKILL.md sample texts.
 - `plugins-data.js`: the sample data from decisions.md and an in-memory store (installs, updates, uninstalls, errors).
@@ -76,6 +88,7 @@ States: feature-design (`fstack/feature-design`), Also in Library (`caveman/cave
 Rebuild a bundle from the repository root after editing a source:
 
 ```sh
+python3 -I docs/design/scoped-pages/source/kit/inline.py docs/design/plugins/source/library.html docs/design/plugins/prototypes/library.html
 python3 -I docs/design/scoped-pages/source/kit/inline.py docs/design/plugins/source/plugins-list.html docs/design/plugins/prototypes/plugins-list.html
 python3 -I docs/design/scoped-pages/source/kit/inline.py docs/design/plugins/source/plugin-page.html docs/design/plugins/prototypes/plugin-page.html
 python3 -I docs/design/scoped-pages/source/kit/inline.py docs/design/plugins/source/plugin-skill.html docs/design/plugins/prototypes/plugin-skill.html
