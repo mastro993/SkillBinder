@@ -62,6 +62,7 @@ mod sync;
 mod toasts;
 mod toolbar_page;
 mod undo;
+mod update_review;
 mod updates;
 mod without_git;
 mod workspace_dialogs;
@@ -133,6 +134,8 @@ enum DialogState {
     AddSkill(Box<skill_picker::SkillPicker>),
     /// A catalog skill's detail, opened from Explore.
     SkillDetail(Box<explore::Detail>),
+    /// The review of one skill's update, opened by its Update (ADR 0037).
+    UpdateReview(Box<update_review::ReviewDialog>),
     AddRepository(Box<explore::AddRepository>),
     RemoveRepository(Box<Repository>),
     /// Unticking a skill's last folder on a workspace's page asks before removing it there.

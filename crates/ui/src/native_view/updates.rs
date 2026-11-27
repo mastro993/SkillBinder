@@ -14,7 +14,8 @@ pub(super) enum Effect {
     None,
     CloseDialog,
     DeletePreview(DeletePreview),
-    Updated(UpdateOutcome),
+    /// Update from the review dialog finished, or failed to.
+    Reviewed(Box<AppResult<ReviewedOutcome>>),
     /// A skill was reinstalled, so its page shows its restored content.
     Reinstalled(SkillId),
     /// A blocking change landed, so the progress strip ends.
@@ -173,15 +174,7 @@ impl NativeView {
                     Effect::DeletePreview(preview) => {
                         self.show_dialog(DialogState::DeletePreset(preview))
                     }
-                    Effect::Updated(outcome) => {
-                        // An updated skill's page shows its new content.
-                        if let Route::Skill(id) = &self.route
-                            && outcome.updated.contains(id)
-                        {
-                            self.load_skill(id.clone(), cx);
-                        }
-                        self.update_outcome = Some(outcome);
-                    }
+                    Effect::Reviewed(outcome) => self.update_landed(*outcome, cx),
                     Effect::Reinstalled(id) => {
                         if self.route == Route::Skill(id.clone()) {
                             self.load_skill(id, cx);

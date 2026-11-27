@@ -237,7 +237,7 @@ impl NativeView {
                     .on_select(menu_action(
                         view.clone(),
                         skill.clone(),
-                        |view, skill, _, cx| view.update(vec![skill.clone()], cx),
+                        |view, skill, _, cx| view.review_update(skill.clone(), cx),
                     )),
             );
         }

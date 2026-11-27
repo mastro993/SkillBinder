@@ -1,5 +1,5 @@
 //! Molecule: a dialog's header, its `title-md` title, an optional `body-sm` muted description
-//! under it, and the close button at its end.
+//! or a detail line of any content under it, and the close button at its end.
 //!
 //! Kit's own close control keeps the arrow cursor, so a dialog turns it off and its header draws
 //! [`Button::close`] in its place.
@@ -24,7 +24,7 @@ enum Title {
 #[derive(IntoElement)]
 pub struct DialogHeader {
     title: Title,
-    description: Option<SharedString>,
+    description: Option<AnyElement>,
     close: Option<Button>,
 }
 
@@ -49,8 +49,17 @@ impl DialogHeader {
 
     /// Shows `description` under the title.
     pub fn description(self, description: impl Into<SharedString>) -> Self {
+        let description = Text::labeled("description", description.into())
+            .level(text::BODY_SM)
+            .muted();
+        self.detail(description)
+    }
+
+    /// Shows `detail` under the title in place of a description, such as a line mixing glyphs,
+    /// mono text, and status tones.
+    pub fn detail(self, detail: impl IntoElement) -> Self {
         Self {
-            description: Some(description.into()),
+            description: Some(detail.into_any_element()),
             ..self
         }
     }
@@ -75,11 +84,6 @@ impl RenderOnce for DialogHeader {
             Title::Text(title) => Text::labeled("title", title).into_any_element(),
             Title::Element(title) => title,
         };
-        let description = self.description.map(|description| {
-            Text::labeled("description", description)
-                .level(text::BODY_SM)
-                .muted()
-        });
         div()
             .w_full()
             .flex()
@@ -95,7 +99,7 @@ impl RenderOnce for DialogHeader {
                     .min_w_0()
                     .gap(px(space::XS))
                     .child(text::TITLE_MD.apply(div()).child(title))
-                    .children(description),
+                    .children(self.description),
             )
             .children(self.close)
     }

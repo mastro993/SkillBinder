@@ -152,6 +152,9 @@ impl NativeView {
             DialogState::SkillDetail(detail) => {
                 self.skill_detail_dialog(dialog, detail, viewport, cx)
             }
+            DialogState::UpdateReview(review) => {
+                self.update_review_dialog(dialog, review, viewport, cx)
+            }
             DialogState::RemoveFromWorkspace { workspace, skill } => {
                 self.remove_from_workspace_dialog(dialog, workspace, skill, cx)
             }

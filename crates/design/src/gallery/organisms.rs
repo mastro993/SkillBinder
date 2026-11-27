@@ -4,12 +4,12 @@
 use super::{section, wrap};
 use crate::tokens::space;
 use crate::{
-    AvatarStack, Button, CardList, Checkbox, DialogFooter, DialogHeader, Level, ListRow, Logo,
-    PopoverPanel, SkillCard, Surface, Text, icon, icon_color, menu,
+    AvatarStack, Button, CardList, Checkbox, DialogFooter, DialogHeader, DiffView, Level, ListRow,
+    Logo, PopoverPanel, SkillCard, Surface, Text, diff_state, icon, icon_color, menu,
 };
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
-    AnyElement, App, Div, InteractiveElement, IntoElement, ParentElement, Styled, div, px,
+    AnyElement, App, Div, InteractiveElement, IntoElement, ParentElement, Styled, Window, div, px,
 };
 
 /// The width of an organism shown at a column's width.
@@ -24,14 +24,57 @@ const LOGOS: [Logo; 6] = [
     Logo::Glyph("icons/folder.svg"),
 ];
 
+/// A changed file, a removed one, and an added executable one, for `DiffView`.
+const PATCH: &str = "diff --git a/SKILL.md b/SKILL.md
+--- a/SKILL.md
++++ b/SKILL.md
+@@ -1,9 +1,10 @@
+ ---
+ name: pdf
+-description: Extract text and tables from PDF files.
++description: Extract text and tables from PDF files, and fill PDF forms.
++license: MIT
+ ---
+ 
+ # PDF
+ 
+ Use this skill when the user asks to read a PDF.
+ Tables come out as TSV, one file per table.
+diff --git a/reference.md b/reference.md
+deleted file mode 100644
+--- a/reference.md
++++ /dev/null
+@@ -1 +0,0 @@
+-Notes.
+diff --git a/scripts/fill_form.py b/scripts/fill_form.py
+new file mode 100755
+--- /dev/null
++++ b/scripts/fill_form.py
+@@ -0,0 +1,2 @@
++import pdf
++pdf.fill()
+";
+
 /// Every organism's section.
-pub(super) fn organisms(cx: &App) -> Vec<AnyElement> {
+pub(super) fn organisms(window: &mut Window, cx: &mut App) -> Vec<AnyElement> {
     vec![
         section("ListRow, CardList, and AvatarStack", lists()).into_any_element(),
         section("SkillCard", cards()).into_any_element(),
         section("DialogHeader and DialogFooter", dialog(cx)).into_any_element(),
         section("Menu and PopoverPanel", menus(cx)).into_any_element(),
+        section("DiffView", diff(window, cx)).into_any_element(),
     ]
+}
+
+fn diff(window: &mut Window, cx: &mut App) -> Div {
+    let state = window.use_keyed_state("gallery-diff", cx, |_, cx| {
+        diff_state(PATCH, cx).unwrap_or_else(|error| panic!("gallery patch: {error}"))
+    });
+    wrap().child(
+        DiffView::new(state.read(cx))
+            .w(px(COLUMN * 2.))
+            .h(px(COLUMN)),
+    )
 }
 
 fn lists() -> Div {
