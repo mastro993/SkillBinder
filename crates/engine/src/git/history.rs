@@ -56,7 +56,7 @@ impl Git {
                 // The page after `before` starts with its first parent.
                 &format!("--skip={}", usize::from(before.is_some())),
                 // One more than shown says whether an older page remains.
-                &format!("--max-count={}", limit + 1),
+                &format!("--max-count={}", limit.saturating_add(1)),
                 &format,
                 &start,
                 "--",

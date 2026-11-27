@@ -64,7 +64,15 @@ pub(super) fn plan_resolve(
             |conflict| conflict.slug.clone(),
             |conflict| vec![conflict.slug.clone()],
         )?;
-        chosen.insert(conflict.slug.clone(), *side);
+        if chosen
+            .insert(conflict.slug.clone(), *side)
+            .is_some_and(|was| was != *side)
+        {
+            return Err(CommandError::new(
+                ErrorCode::Usage,
+                format!("Choose one version of {}.", conflict.slug),
+            ));
+        }
     }
     let missing: Vec<&str> = conflicts
         .iter()

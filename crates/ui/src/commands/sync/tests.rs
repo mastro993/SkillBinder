@@ -1,6 +1,7 @@
 use super::reads::{history_row, page_size};
 use super::{
-    plan, plan_change, plan_discard, plan_remove, plan_resolve, plan_restore, plan_set, status,
+    plan, plan_change, plan_discard, plan_remove, plan_resolve, plan_restore, plan_set, refused,
+    status,
 };
 use crate::commands::plan::Plan;
 use crate::commands::run::refusal;
@@ -10,8 +11,8 @@ use crate::native_view::fixture::Fixture;
 use chrono::{TimeZone, Utc};
 use skillbinder_proto::command_line::{CommandError, ErrorCode, SyncCommand, SyncKind};
 use skillbinder_proto::{
-    AppSnapshot, ChangeKind, ChangedSkill, Choice, Conflict, ConflictSide, Reason, RemoteConfig,
-    Side, SkillId, SyncAction, SyncChange, SyncState,
+    AppError, AppSnapshot, ChangeKind, ChangedSkill, Choice, Conflict, ConflictSide, ErrorCategory,
+    Reason, RemoteConfig, Side, SkillId, SyncAction, SyncChange, SyncState,
 };
 use std::collections::BTreeMap;
 
@@ -146,7 +147,7 @@ fn conflicted() -> AppSnapshot {
     snapshot
 }
 
-fn refused(planned: Result<Plan, CommandError>) -> (ErrorCode, u8, String) {
+fn planned(planned: Result<Plan, CommandError>) -> (ErrorCode, u8, String) {
     match planned {
         Err(error) => (error.code, error.code.exit_code(), error.message),
         Ok(plan) => panic!("{plan:?} is refused"),
@@ -157,16 +158,36 @@ fn refused(planned: Result<Plan, CommandError>) -> (ErrorCode, u8, String) {
 fn sync_during_a_conflict_exits_2_and_names_sync_resolve() {
     let mut snapshot = conflicted();
     assert_eq!(
-        refused(plan(&snapshot, SyncKind::Sync)),
+        planned(plan(&snapshot, SyncKind::Sync)),
         (
             ErrorCode::Usage,
             2,
             "2 skills changed on both sides. Resolve them with `skillbinder sync resolve`.".into()
         )
     );
+    // A Sync whose fetch finds them refuses with the same words once the snapshot shows them.
+    let engine = || AppError::new(ErrorCategory::Validation, "Choose which version.", "");
+    let after = refused(SyncAction::Sync, &snapshot.sync, engine());
+    assert_eq!(
+        (after.code, after.message.as_str()),
+        (
+            ErrorCode::Usage,
+            "2 skills changed on both sides. Resolve them with `skillbinder sync resolve`."
+        )
+    );
+    assert_eq!(
+        refused(SyncAction::Push, &snapshot.sync, engine()).message,
+        "Choose which version.",
+        "a Push keeps the engine's words"
+    );
+    assert_eq!(
+        refused(SyncAction::Sync, &world(true).sync, engine()).message,
+        "Choose which version.",
+        "with no conflict found, the engine's words stand"
+    );
     snapshot.sync.conflicts.truncate(1);
     assert_eq!(
-        refused(plan(&snapshot, SyncKind::Sync)).2,
+        planned(plan(&snapshot, SyncKind::Sync)).2,
         "1 skill changed on both sides. Resolve them with `skillbinder sync resolve`."
     );
 }
@@ -192,11 +213,11 @@ fn resolve_needs_a_version_of_exactly_the_skills_changed_on_both_sides() {
         "names compare ignoring case"
     );
     assert_eq!(
-        refused(plan_resolve(&snapshot, &choices(&[("pdf", Side::Local)]))),
+        planned(plan_resolve(&snapshot, &choices(&[("pdf", Side::Local)]))),
         (ErrorCode::Usage, 2, "Choose a version of sql too.".into())
     );
     assert_eq!(
-        refused(plan_resolve(
+        planned(plan_resolve(
             &snapshot,
             &choices(&[
                 ("pdf", Side::Local),
@@ -211,7 +232,19 @@ fn resolve_needs_a_version_of_exactly_the_skills_changed_on_both_sides() {
         )
     );
     assert_eq!(
-        refused(plan_resolve(
+        planned(plan_resolve(
+            &snapshot,
+            &choices(&[
+                ("PDF", Side::Local),
+                ("pdf", Side::Remote),
+                ("sql", Side::Local)
+            ])
+        ))
+        .2,
+        "Choose one version of pdf."
+    );
+    assert_eq!(
+        planned(plan_resolve(
             &world(true),
             &choices(&[("pdf", Side::Local)])
         )),
