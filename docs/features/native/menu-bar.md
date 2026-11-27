@@ -48,7 +48,7 @@ The status line is disabled text, the first of these that applies:
 | `Checking skill updates…` | A source check runs and no update is known |
 | `Skills are up to date` | Otherwise |
 
-Update all is Library's Update all ([Library and organization](library-and-organization.md)): it updates each skill with an update, one at a time, then scans once. It runs in the client, not the window, so it runs the same with no window open, an open window shows it in Library's header ring and reports its outcome on the page, and closing the window midway does not stop it. It is disabled while a blocking change, the window's short work, or a Git operation (Sync, Push, Pull, Refresh, Disconnect started in the window) runs. While the app runs, it checks every source not checked within the hour, every hour, from an hour after launch, whose scan already checks.
+Update all is Library's Update all ([Skill updates](skill-updates.md)): it updates each skill with an update, one at a time, without review, then scans once. It runs in the client, not the window, so it runs the same with no window open, an open window shows it in Library's header ring and reports its outcome on the page, and closing the window midway does not stop it. It is disabled while a blocking change, the window's short work, or a Git operation (Sync, Push, Pull, Refresh, Disconnect started in the window) runs. While the app runs, it checks every source not checked within the hour, every hour, from an hour after launch, whose scan already checks.
 
 ## App updates
 

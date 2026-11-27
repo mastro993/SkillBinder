@@ -74,11 +74,11 @@ sequenceDiagram
   end
 ```
 
-- **Proto** (decisions 1, 5): `UpdateReview { id, source, from, to, files: Vec<ReviewedFile>, patch }` where `from` is the library content's digest and `to` is the fetched tree. `ReviewedFile { path, change: Added | Changed | Removed, additions, deletions, shown: Lines | Binary { before, after } | TooLarge | PastCap }`. `ReviewedUpdate { id, from, to }`, and `ReviewedOutcome::{Updated(UpdateOutcome), Moved(UpdateReview)}`. These are typed contracts with no I/O, in `crates/proto/src/library.rs` beside `UpdateOutcome`.
+- **Proto** (decisions 1, 5): `UpdateReview { id, source, from, to, files: Vec<ReviewedFile>, patch }` where `from` is the library content's digest and `to` is the fetched tree. `ReviewedFile { path, change: Added | Changed | Removed, additions, deletions, shown: Lines | Binary { before, after } | TooLarge | PastCap }`. `ReviewedUpdate { id, from, to }`, and `ReviewedOutcome::{Updated(UpdateOutcome), Moved { moved: Source | Library, review }}`, `moved` choosing R9's notice. These are typed contracts with no I/O, in `crates/proto/src/update_review.rs`.
 - **Engine** (behaviors 1–5): a new `crates/engine/src/sources/review.rs`.
   - `State::review_update(id)` reuses `update_skill`'s fetch, `checkout`, and `refusal`, and returns the review.
   - `State::update_reviewed(reviewed)` refactors `apply.rs`'s `update_skill` so that the checkout is compared with `from` and `to` before `replace`. A mismatch builds the review from the same checkout, with no second fetch.
-  - The patch is built in-process with `similar` (`TextDiff::from_lines`, three context lines, `diff --git a/<path> b/<path>` headers), and `DiffFile::parse` in Kit reads it. A file with a NUL byte in its first 8,000 bytes, or one that is not UTF-8, is binary, as Git decides. Paths are relative to the skill folder, with `/` separators.
+  - The patch is built in-process with `similar` (`TextDiff::from_lines`, each text file's whole text as context so `DiffView` can unfold every stretch it folds past three lines, `diff --git a/<path> b/<path>` headers), and `DiffFile::parse` in Kit reads it. A file with a NUL byte in its first 8,000 bytes, or one that is not UTF-8, is binary, as Git decides. Paths are relative to the skill folder, with `/` separators.
   - Logs under `Area::Update`: `review built` with slug, files, and bytes, and `review moved`.
   - Workspace dependency `similar = "2.7"` (already locked through GPUI Kit), added to the engine's row in `xtask/src/graph.rs` (ADR 0037).
 - **Client**: `Client::review_update(id)` and `Client::update_reviewed(reviewed)` on the runtime, like `update_skills`. `update_reviewed` publishes `Effect::Updated` on `Updated`.
