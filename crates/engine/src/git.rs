@@ -19,7 +19,7 @@ pub(crate) use validation::url as validate_url;
 
 use crate::{shutdown::Shutdown, storage};
 use skillbinder_proto::{
-    AppError, AppResult, ErrorCategory, RemoteConfig, SyncAction, SyncSnapshot, SyncState,
+    AppError, AppResult, ErrorCategory, Reason, RemoteConfig, SyncAction, SyncSnapshot, SyncState,
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -78,11 +78,17 @@ impl Git {
             Err(AppError::validation("Choose a valid Git branch name."))
         }
     }
-    /// Fetches a prospective remote without modifying library files or committing.
-    pub fn connect(&self, repo: &Path, remote: &RemoteConfig) -> AppResult<SyncSnapshot> {
+    /// Fetches a prospective remote without modifying library files or committing. `reasons`
+    /// says why each skill changed, as [`Git::status`] takes them.
+    pub fn connect(
+        &self,
+        repo: &Path,
+        remote: &RemoteConfig,
+        reasons: &BTreeMap<String, Reason>,
+    ) -> AppResult<SyncSnapshot> {
         self.validate_remote(remote)?;
         self.preflight(repo)?;
-        self.status(repo, Some(remote), true)
+        self.status(repo, Some(remote), true, reasons)
     }
     /// Executes an explicit operation. The engine owns persistence of remote selection.
     #[cfg(test)]
@@ -104,14 +110,14 @@ impl Git {
     ) -> AppResult<SyncSnapshot> {
         if matches!(action, SyncAction::Disconnect) {
             self.disconnect_origin(repo)?;
-            return self.status(repo, None, false);
+            return self.status(repo, None, false, &BTreeMap::new());
         }
         if matches!(action, SyncAction::Refresh) {
-            return self.status(repo, remote, true);
+            return self.status(repo, remote, true, &committer.reasons()?);
         }
         let remote = remote.ok_or_else(|| AppError::validation("Connect a remote first."))?;
         self.preflight(repo)?;
-        let before = self.status(repo, Some(remote), true)?;
+        let before = self.status(repo, Some(remote), true, &BTreeMap::new())?;
         let adopt = before.behind > 0
             && matches!(action, SyncAction::Pull | SyncAction::Sync)
             && self.can_adopt(repo)?;
@@ -149,14 +155,17 @@ impl Git {
                 )?;
             }
         }
-        self.status(repo, Some(remote), true)
+        self.status(repo, Some(remote), true, &committer.reasons()?)
     }
-    /// Classifies the state, optionally fetching. Never commits or checks out files.
+    /// Classifies the state, optionally fetching, and lists what waits on each side. A skill
+    /// changed on this device says why from `reasons`, by slug, else from the commits not pushed
+    /// yet. Never commits or checks out files.
     pub fn status(
         &self,
         repo: &Path,
         remote: Option<&RemoteConfig>,
         fetch: bool,
+        reasons: &BTreeMap<String, Reason>,
     ) -> AppResult<SyncSnapshot> {
         let porcelain = self.output(
             repo,
@@ -215,9 +224,15 @@ impl Git {
             SyncState::Synced
         };
         let (local_skills, incoming_skills) = if state == SyncState::Synced {
-            (0, 0)
+            (Vec::new(), None)
         } else {
-            self.pending_skills(repo, local.as_deref(), incoming.as_deref(), &porcelain)?
+            self.pending(
+                repo,
+                local.as_deref(),
+                incoming.as_deref(),
+                &porcelain,
+                reasons,
+            )?
         };
         Ok(SyncSnapshot {
             remote: Some(remote.clone()),
@@ -226,8 +241,8 @@ impl Git {
             behind,
             uncommitted: dirty,
             changed_files,
-            local_skills,
-            incoming_skills,
+            local: local_skills,
+            incoming: incoming_skills,
             refreshed_at: fetch.then(|| {
                 SystemTime::now()
                     .duration_since(UNIX_EPOCH)

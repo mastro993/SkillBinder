@@ -22,7 +22,8 @@ impl Engine {
                         .git
                         .as_ref()
                         .ok_or_else(|| AppError::validation("Git is unavailable."))?;
-                    let snapshot = git.connect(&state.library_dir(), &remote)?;
+                    let reasons = pending_changes::reasons(&mut state.database.borrow_mut())?;
+                    let snapshot = git.connect(&state.library_dir(), &remote, &reasons)?;
                     state.set_setting("remote", &Some(remote))?;
                     state.set_setting("sync", &snapshot)?;
                     Ok(snapshot)

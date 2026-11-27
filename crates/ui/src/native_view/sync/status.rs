@@ -5,9 +5,9 @@
 use super::super::sidebar_presets::menu_action;
 use super::super::{DialogState, NativeView};
 use super::copy::{self, Tint};
-use gpui_kit::component::{ActiveTheme, Sizable, h_flex, v_flex};
+use gpui_kit::component::{ActiveTheme, Sizable, Theme, h_flex, v_flex};
 use gpui_kit::{
-    AnyElement, App, ClickEvent, ClipboardItem, Context, InteractiveElement, IntoElement,
+    AnyElement, App, ClickEvent, ClipboardItem, Context, Hsla, InteractiveElement, IntoElement,
     MouseButton, MouseDownEvent, ParentElement, Pixels, Point, Styled, Window, div, px,
 };
 use skillbinder_design::sync::STATUS_TILE;
@@ -214,17 +214,21 @@ impl NativeView {
     }
 }
 
-/// The glyph tile, tinted by the state.
-fn tile(glyph: &'static str, tint: Tint, cx: &App) -> impl IntoElement {
-    let theme = cx.theme();
-    let (fill, ink) = match tint {
+/// The fill and ink of a glyph tinted `tint`, such as the status tile or a kind mark.
+pub(super) fn tinted(tint: Tint, theme: &Theme) -> (Hsla, Hsla) {
+    match tint {
         Tint::Accent => (
             color::ACCENT_SOFT.of(theme),
             color::ACCENT_SOFT_FOREGROUND.of(theme),
         ),
         Tint::Success => (theme.muted, color::SUCCESS_TEXT.of(theme)),
         Tint::Danger => (theme.muted, color::DANGER_TEXT.of(theme)),
-    };
+    }
+}
+
+/// The glyph tile, tinted by the state.
+fn tile(glyph: &'static str, tint: Tint, cx: &App) -> impl IntoElement {
+    let (fill, ink) = tinted(tint, cx.theme());
     div()
         .flex_none()
         .size(px(STATUS_TILE))

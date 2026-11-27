@@ -19,7 +19,8 @@ impl State {
             && self.library_dir().join(".git").exists()
         {
             let remote: Option<RemoteConfig> = self.setting("remote")?.flatten();
-            let mut current = git.status(&self.library_dir(), remote.as_ref(), false)?;
+            let reasons = crate::pending_changes::reasons(&mut self.database.borrow_mut())?;
+            let mut current = git.status(&self.library_dir(), remote.as_ref(), false, &reasons)?;
             current.refreshed_at = sync.refreshed_at;
             current.last_error = sync.last_error;
             if current.remote.is_some() && current.last_error.is_some() {

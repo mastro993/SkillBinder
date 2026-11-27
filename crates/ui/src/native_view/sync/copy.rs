@@ -1,9 +1,12 @@
 //! The Sync page's words: each state's glyph, title, line, and main action (Y2), what a running
-//! action's button reads, and the toast an action ends with (Y7).
+//! action's button reads, the toast an action ends with (Y7), and each waiting skill's kind and
+//! why (Y5, Y8).
 
 use super::super::library_dates::{from_unix, relative};
 use chrono::{DateTime, Utc};
-use skillbinder_proto::{SyncAction, SyncSnapshot, SyncState};
+use skillbinder_proto::{
+    ChangeKind, ChangedSkill, Incoming, Reason, SyncAction, SyncSnapshot, SyncState,
+};
 
 /// The tint of the status card's glyph tile.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -37,8 +40,12 @@ pub(super) fn status(sync: &SyncSnapshot, now: DateTime<Utc>) -> Option<Status> 
         line,
         main,
     };
-    let here = sync.local_skills;
-    let there = sync.incoming_skills;
+    let here = sync.local.len();
+    let incoming = sync.incoming.as_ref();
+    let there = incoming.map_or(0, |incoming| incoming.skills.len());
+    let from = incoming
+        .and_then(devices)
+        .unwrap_or_else(|| "the remote".to_owned());
     Some(match sync.state {
         SyncState::NotConfigured => return None,
         SyncState::Synced => card(
@@ -61,7 +68,7 @@ pub(super) fn status(sync: &SyncSnapshot, now: DateTime<Utc>) -> Option<Status> 
         SyncState::NeedsPull => card(
             "download",
             Tint::Accent,
-            format!("{} changed on the remote", skills(there)),
+            format!("{} changed on {from}", skills(there)),
             "Not pulled yet".to_owned(),
             Some(SyncAction::Pull),
         ),
@@ -69,7 +76,7 @@ pub(super) fn status(sync: &SyncSnapshot, now: DateTime<Utc>) -> Option<Status> 
             "git-merge",
             Tint::Accent,
             "Changes on both sides".to_owned(),
-            format!("{here} here, {there} from the remote"),
+            format!("{here} here, {there} from {from}"),
             Some(SyncAction::Sync),
         ),
         SyncState::Unreachable => {
@@ -123,7 +130,58 @@ pub(super) fn done(action: SyncAction, address: &str) -> Option<String> {
     }
 }
 
-fn skills(count: u64) -> String {
+/// The devices that changed what the remote holds: the newest, then "and <k> more" with several;
+/// none for commits made before device names.
+pub(super) fn devices(incoming: &Incoming) -> Option<String> {
+    let (newest, rest) = incoming.devices.split_first()?;
+    Some(match rest.len() {
+        0 => newest.clone(),
+        more => format!("{newest} and {more} more"),
+    })
+}
+
+/// The end of the remote's group head (Y5): when its newest commit was made, if known, then
+/// "Not pulled".
+pub(super) fn not_pulled(incoming: &Incoming, now: DateTime<Utc>) -> String {
+    let Some(at) = incoming.at.and_then(from_unix) else {
+        return "Not pulled".to_owned();
+    };
+    let at = relative(at, now);
+    let mut letters = at.chars();
+    let first = letters.next().map(|c| c.to_uppercase().to_string());
+    format!(
+        "{}{} · Not pulled",
+        first.unwrap_or_default(),
+        letters.as_str()
+    )
+}
+
+/// A kind's mark, its tooltip, and its tint (Y5).
+pub(super) fn kind(kind: ChangeKind) -> (&'static str, &'static str, Tint) {
+    match kind {
+        ChangeKind::Added => ("+", "Added", Tint::Success),
+        ChangeKind::Changed => ("~", "Changed", Tint::Accent),
+        ChangeKind::Removed => ("−", "Removed", Tint::Danger),
+    }
+}
+
+/// Why a skill changed (Y8); unknown for a commit made before device names.
+pub(super) fn why(skill: &ChangedSkill) -> Option<String> {
+    Some(match skill.reason.as_ref()? {
+        Reason::Imported { from: Some(from) } => format!("Imported from {from}"),
+        Reason::Imported { from: None } => "Imported".to_owned(),
+        Reason::Installed => "Installed from Explore".to_owned(),
+        Reason::Updated => "Updated from its source".to_owned(),
+        Reason::Reinstalled => "Reinstalled".to_owned(),
+        Reason::Record => "Record added".to_owned(),
+        Reason::Outside if skill.kind == ChangeKind::Removed => {
+            "Removed outside SkillBinder".to_owned()
+        }
+        Reason::Outside => "Changed outside SkillBinder".to_owned(),
+    })
+}
+
+fn skills(count: usize) -> String {
     match count {
         1 => "1 skill".to_owned(),
         count => format!("{count} skills"),

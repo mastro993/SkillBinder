@@ -66,13 +66,22 @@ impl Device {
 
     /// Clones the remote, lets `edit` change the clone, and pushes the result.
     pub fn peer_push(&self, edit: impl FnOnce(&Path)) {
+        self.peer_push_with(&["peer"], edit);
+    }
+
+    /// [`Device::peer_push`] with a commit message of `paragraphs`.
+    pub fn peer_push_with(&self, paragraphs: &[&str], edit: impl FnOnce(&Path)) {
         let peer = self.fixture.workspace.with_file_name("peer");
         if !peer.exists() {
             git(peer.parent().unwrap(), &["clone", &self.remote.url, "peer"]);
         }
         edit(&peer.join("skills"));
         git(&peer, &["add", "-A"]);
-        git(&peer, &["commit", "-m", "peer"]);
+        let mut commit = vec!["commit"];
+        for paragraph in paragraphs {
+            commit.extend(["-m", paragraph]);
+        }
+        git(&peer, &commit);
         git(&peer, &["push", "origin", "main"]);
     }
 
