@@ -89,7 +89,7 @@ fn done(action: SyncAction, url: &str) -> String {
     }
 }
 
-/// Connects the library to `remote`, as the Sync page's Connect remote does: it checks and
+/// Connects the library to `remote`, as the Sync page's Connect does: it checks and
 /// fetches the remote, committing nothing.
 pub(super) async fn connect(
     remote: RemoteConfig,

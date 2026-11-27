@@ -59,11 +59,12 @@ impl NativeView {
                         })
                 })
             });
-            // The dialog takes focus as it opens; the picker hands it to its search, and Add
-            // repository to its URL.
+            // The dialog takes focus as it opens; the picker hands it to its search, Add repository
+            // to its URL, and Change branch to its branch.
             let field = match &self.dialog {
                 DialogState::AddSkill(picker) => Some(&picker.search),
                 DialogState::AddRepository(add) => Some(&add.input),
+                DialogState::ChangeBranch => Some(&self.remote_branch),
                 _ => None,
             };
             if let Some(field) = field {
@@ -166,6 +167,8 @@ impl NativeView {
             DialogState::ApplicationsMenu { failed } => {
                 self.applications_menu_dialog(dialog, *failed, cx)
             }
+            DialogState::ChangeBranch => self.change_branch_dialog(dialog, cx),
+            DialogState::Disconnect => self.disconnect_dialog(dialog, cx),
         }
     }
 }

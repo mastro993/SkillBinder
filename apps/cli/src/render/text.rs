@@ -91,6 +91,7 @@ fn status_text(status: &StatusOutput) -> String {
         SyncState::NeedsPull => "needs pull",
         SyncState::NeedsPush => "needs push",
         SyncState::NeedsSync => "needs sync",
+        SyncState::Unreachable => "can't reach the remote",
     };
     text.push_str(&format!("Sync: {sync}\n"));
     if let Some(running) = running {

@@ -3,6 +3,7 @@ mod adoption;
 mod discovery;
 mod install;
 mod objects;
+mod pending;
 mod process;
 mod source;
 #[cfg(test)]
@@ -156,7 +157,7 @@ impl Git {
         remote: Option<&RemoteConfig>,
         fetch: bool,
     ) -> AppResult<SyncSnapshot> {
-        let changed_files = changed_files(&self.output(
+        let porcelain = self.output(
             repo,
             &[
                 "status",
@@ -168,7 +169,8 @@ impl Git {
                 MANAGED[0],
                 MANAGED[1],
             ],
-        )?);
+        )?;
+        let changed_files = changed_files(&porcelain);
         let dirty = changed_files > 0;
         let Some(remote) = remote else {
             return Ok(SyncSnapshot {
@@ -211,6 +213,11 @@ impl Git {
         } else {
             SyncState::Synced
         };
+        let (local_skills, incoming_skills) = if state == SyncState::Synced {
+            (0, 0)
+        } else {
+            self.pending_skills(repo, local.as_deref(), incoming.as_deref(), &porcelain)?
+        };
         Ok(SyncSnapshot {
             remote: Some(remote.clone()),
             state,
@@ -218,12 +225,15 @@ impl Git {
             behind,
             uncommitted: dirty,
             changed_files,
+            local_skills,
+            incoming_skills,
             refreshed_at: fetch.then(|| {
                 SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .unwrap_or_default()
                     .as_secs()
             }),
+            last_error: None,
         })
     }
     fn reconcile_origin(&self, repo: &Path, remote: &RemoteConfig) -> AppResult<()> {

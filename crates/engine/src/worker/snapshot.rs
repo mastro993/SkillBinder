@@ -21,6 +21,10 @@ impl State {
             let remote: Option<RemoteConfig> = self.setting("remote")?.flatten();
             let mut current = git.status(&self.library_dir(), remote.as_ref(), false)?;
             current.refreshed_at = sync.refreshed_at;
+            current.last_error = sync.last_error;
+            if current.remote.is_some() && current.last_error.is_some() {
+                current.state = SyncState::Unreachable;
+            }
             sync = current;
         }
         let (scan, scanning) = self.scans.current()?;

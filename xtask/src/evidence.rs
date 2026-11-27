@@ -67,6 +67,24 @@ struct Logo {
     svg_sha256: String,
 }
 
+/// The glyph lists beside the inventory, such as `preset-glyphs.json`, which keep it small enough
+/// to edit: every `*-glyphs.json`, in name order.
+fn glyph_listings(assets: &Path) -> anyhow::Result<Vec<String>> {
+    let mut listings = Vec::new();
+    for entry in std::fs::read_dir(assets).context("Missing retained Hugeicons")? {
+        let name = entry?.file_name().to_string_lossy().into_owned();
+        if name.ends_with("-glyphs.json") {
+            listings.push(name);
+        }
+    }
+    listings.sort();
+    ensure!(
+        listings.iter().any(|name| name == "preset-glyphs.json"),
+        "Missing evidence preset-glyphs.json"
+    );
+    Ok(listings)
+}
+
 fn read(base: &Path, relative: &str) -> anyhow::Result<Vec<u8>> {
     ensure!(
         Path::new(relative)
@@ -113,9 +131,13 @@ pub fn verify(root: &Path) -> anyhow::Result<()> {
     }
     let assets = root.join("assets/hugeicons");
     let artwork: Artwork = serde_json::from_slice(&read(&assets, "inventory.json")?)?;
-    let preset_glyphs: Vec<Glyph> = serde_json::from_slice(&read(&assets, "preset-glyphs.json")?)?;
+    let mut glyphs = artwork.glyphs;
+    for listing in glyph_listings(&assets)? {
+        let listed: Vec<Glyph> = serde_json::from_slice(&read(&assets, &listing)?)?;
+        glyphs.extend(listed);
+    }
     verify_hash(&assets, &artwork.license_file, &artwork.license_sha256)?;
-    for glyph in artwork.glyphs.into_iter().chain(preset_glyphs) {
+    for glyph in glyphs {
         verify_hash(&assets, &glyph.file, &glyph.svg_sha256)?;
         for variant in glyph.usage_overrides {
             verify_hash(&assets, &variant.file, &variant.svg_sha256)?;

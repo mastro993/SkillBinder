@@ -39,6 +39,7 @@ mod skill_card;
 mod spinner;
 mod status_glyph;
 mod surface;
+pub mod sync;
 #[cfg(test)]
 mod test_window;
 mod text;

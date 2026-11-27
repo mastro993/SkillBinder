@@ -90,7 +90,19 @@ impl State {
                 &error,
             );
         }
-        let snapshot = result?;
+        let snapshot = match result {
+            Ok(snapshot) => snapshot,
+            // A check that fails shows as Unreachable until a later one, or an operation,
+            // reaches the remote.
+            Err(error) if matches!(action, SyncAction::Refresh) => {
+                let mut checked: SyncSnapshot = self.setting("sync")?.unwrap_or_default();
+                checked.state = SyncState::Unreachable;
+                checked.last_error = Some(error.clone());
+                self.set_setting("sync", &checked)?;
+                return Err(error);
+            }
+            Err(error) => return Err(error),
+        };
         if matches!(action, SyncAction::Disconnect) {
             self.set_setting("remote", &Option::<RemoteConfig>::None)?;
         }

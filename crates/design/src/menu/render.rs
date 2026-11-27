@@ -6,7 +6,7 @@ use super::{Kind, Leading, Menu, MenuItem, highlight, row as menu_row, separator
 use crate::sidebar::ICON_SIZE;
 use crate::tokens::color;
 use crate::{Level, Surface, faded};
-use crate::{icon, icon_color};
+use crate::{icon, icon_color, tooltip};
 use gpui_kit::base::{Align, Placement, Positioner, TestSupportExt};
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
@@ -211,6 +211,7 @@ impl Menu {
             .text_color(foreground)
             .when(highlighted, |row| row.bg(highlight))
             .when(item.disabled, |row| row.opacity(DISABLED_OPACITY))
+            .when_some(item.tooltip.clone(), |row, text| row.tooltip(tooltip(text)))
             .children(leading)
             .child(
                 div()

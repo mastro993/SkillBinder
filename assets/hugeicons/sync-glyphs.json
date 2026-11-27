@@ -1,0 +1,90 @@
+[
+  {
+    "name": "ArrowTurnBackwardIcon",
+    "file": "ArrowTurnBackwardIcon.svg",
+    "usedBy": [
+      "docs/design/sync/source/sync-view.js"
+    ],
+    "sourceModule": "dist/esm/ArrowTurnBackwardIcon.js",
+    "sourceModuleSha256": "abe5a7438a5e036ca6ea6146dd900ab9ab8c51d54f4637b0d14af7b634b8bea1",
+    "svgSha256": "694079751dd7dced98d2e4b1f8b558a1d9cb755f04cbda7e36be4fb818550cd9",
+    "elementCount": 2
+  },
+  {
+    "name": "Clock01Icon",
+    "file": "Clock01Icon.svg",
+    "usedBy": [
+      "docs/design/sync/source/sync-view.js"
+    ],
+    "sourceModule": "dist/esm/Clock01Icon.js",
+    "sourceModuleSha256": "91090de77c350b79d64d10071b052bc5d581c3fa6ba0da7d036d31a3232f9a0b",
+    "svgSha256": "c19bdc5f874e1b49c97c2cf83e196de6cafcc1af76f6dfe779f08426d0760a18",
+    "elementCount": 2
+  },
+  {
+    "name": "Download01Icon",
+    "file": "Download01Icon.svg",
+    "usedBy": [
+      "crates/ui/src/native_view/sync/status.rs"
+    ],
+    "sourceModule": "dist/esm/Download01Icon.js",
+    "sourceModuleSha256": "e9f5af88a2a139286604842005bdbc67d6a1710c8a715faa9128ce950e84c4bf",
+    "svgSha256": "e0d60e0d15875d818689e15f75b37e058d5066f215c2d0a73739ebe7b3d79544",
+    "elementCount": 2
+  },
+  {
+    "name": "GitMergeConflictIcon",
+    "file": "GitMergeConflictIcon.svg",
+    "usedBy": [
+      "docs/design/sync/source/sync-view.js"
+    ],
+    "sourceModule": "dist/esm/GitMergeConflictIcon.js",
+    "sourceModuleSha256": "3a9b337664d7d8d98a0a131cb5d33b4c64b93089b4301c1189cb2b886355865a",
+    "svgSha256": "6a78bd06eb34f21b59f73f5e57ac6aefdd2eaef678d7afea05f6e323580bab7c",
+    "elementCount": 5
+  },
+  {
+    "name": "GitMergeIcon",
+    "file": "GitMergeIcon.svg",
+    "usedBy": [
+      "crates/ui/src/native_view/sync/copy.rs"
+    ],
+    "sourceModule": "dist/esm/GitMergeIcon.js",
+    "sourceModuleSha256": "be731a35d7107657740203b77a10c5a4d98a890808b89350cc3fece8edbb4a6c",
+    "svgSha256": "acd9bef0305b42b8b95abc445abbb5be294c19925000bb5d27a751fda7ab4e61",
+    "elementCount": 4
+  },
+  {
+    "name": "LaptopIcon",
+    "file": "LaptopIcon.svg",
+    "usedBy": [
+      "docs/design/sync/source/sync-view.js"
+    ],
+    "sourceModule": "dist/esm/LaptopIcon.js",
+    "sourceModuleSha256": "f1f83f9f471114854b323e02827a1f0bcc01a7b23b28372982942c8f4009b7c4",
+    "svgSha256": "669becbd82d65f9085eedf892655a36a7b1b18ab45645f02cce2519465a12714",
+    "elementCount": 2
+  },
+  {
+    "name": "MoreHorizontalIcon",
+    "file": "MoreHorizontalIcon.svg",
+    "usedBy": [
+      "crates/ui/src/native_view/sync/status.rs"
+    ],
+    "sourceModule": "dist/esm/MoreHorizontalIcon.js",
+    "sourceModuleSha256": "d92bd053eb71e839ff8c9b4eea2225f035158bbc4238d7e3634608609b88b92c",
+    "svgSha256": "556c12b8f94400e2c790a4c95a75b1c6e798bbd437e3016b69bfa45b45c11f62",
+    "elementCount": 1
+  },
+  {
+    "name": "Upload01Icon",
+    "file": "Upload01Icon.svg",
+    "usedBy": [
+      "crates/ui/src/native_view/sync/status.rs"
+    ],
+    "sourceModule": "dist/esm/Upload01Icon.js",
+    "sourceModuleSha256": "5910c5e846bafe28a27509d9a9756c439420d7bb2dd7accc945d73bab8e492ca",
+    "svgSha256": "4fe82aeaaca6ee5dec5e241eb70243ca3517d5018736de87b43f6f817c03a56f",
+    "elementCount": 2
+  }
+]

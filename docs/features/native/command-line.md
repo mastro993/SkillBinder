@@ -39,7 +39,7 @@ Sync: not set up
 
 The counts are Library's All, Active, and Updates with no folder tab, search, or filter. Before onboarding finishes it prints the version and "Setup isn't finished. Open SkillBinder to finish setting up."; every other command will exit 5 with "Open SkillBinder to finish setting up." until then (spec rule 4).
 
-With `--json` it prints exactly one document on stdout: `{"ok": true, "result": {"version", "onboarding_finished", "active_preset", "skills", "active", "updates", "attention", "sync", "running"}}`, `sync` being one of `not_configured`, `synced`, `needs_pull`, `needs_push`, and `needs_sync`. A failure prints `{"ok": false, "error": {"code", "message", "hint"}}`, and in text its message and hint on stderr. A wrong command line exits 2, as one JSON document with `--json`; `--help` and `--version` print text.
+With `--json` it prints exactly one document on stdout: `{"ok": true, "result": {"version", "onboarding_finished", "active_preset", "skills", "active", "updates", "attention", "sync", "running"}}`, `sync` being one of `not_configured`, `synced`, `needs_pull`, `needs_push`, `needs_sync`, and `unreachable`, which text prints as "can't reach the remote". A failure prints `{"ok": false, "error": {"code", "message", "hint"}}`, and in text its message and hint on stderr. A wrong command line exits 2, as one JSON document with `--json`; `--help` and `--version` print text.
 
 ## Library, presets, folders, and copies
 
