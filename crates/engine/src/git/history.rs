@@ -2,14 +2,16 @@
 //! first, each with the device that made it, its time, and the skills it changed against its
 //! first parent, each with why.
 //!
-//! Sync only fast-forwards today, so the chain is the published history on every device; a merge
-//! lists what it brings against its first parent alone. The tree diff, not the trailers, says
-//! which skills a commit changed, so a commit made before device names still lists its skills
-//! (A4).
+//! A merge's first parent is the remote's commit (ADR 0039), so the chain is the published history
+//! on every device, and a merge lists what the device that made it contributed against that
+//! parent alone, with each choice it made. The tree diff, not the trailers, says which skills a
+//! commit changed, so a commit made before device names still lists its skills (A4).
 
-use super::note::{DEVICE, SKILL, skill_trailer};
+use super::note::{CHOICE, DEVICE, SKILL, choice_trailer, skill_trailer};
 use super::{Git, record_of, skill_of};
-use skillbinder_proto::{AppError, AppResult, ChangeKind, ChangedSkill, SyncChange, SyncHistory};
+use skillbinder_proto::{
+    AppError, AppResult, ChangeKind, ChangedSkill, Choice, Side, SyncChange, SyncHistory,
+};
 use std::{collections::BTreeMap, path::Path};
 
 impl Git {
@@ -34,7 +36,7 @@ impl Git {
         };
         let format = format!(
             "--format=%x1e%H%x1f%ct%x1f%(trailers:key={DEVICE},valueonly)%x1f\
-             %(trailers:key={SKILL},valueonly)%x1f"
+             %(trailers:key={SKILL},valueonly)%x1f%P%x1f%(trailers:key={CHOICE},valueonly)%x1f"
         );
         let limit = limit.max(1);
         let log = self.output(
@@ -75,16 +77,10 @@ impl Git {
         Ok(SyncHistory { changes, next })
     }
 
-    /// One commit of the log: its id, time, trailers, and raw diff.
+    /// One commit of the log: its id, time, trailers, parents, and raw diff.
     fn change(&self, repo: &Path, entry: &str) -> AppResult<SyncChange> {
-        let mut fields = entry.splitn(5, '\x1f');
-        let (Some(commit), Some(at), Some(device), Some(trailers), Some(raw)) = (
-            fields.next(),
-            fields.next(),
-            fields.next(),
-            fields.next(),
-            fields.next(),
-        ) else {
+        let fields: Vec<&str> = entry.splitn(7, '\x1f').collect();
+        let [commit, at, device, trailers, parents, choices, raw] = fields[..] else {
             return Err(super::failure("Git history is unreadable."));
         };
         let at = at
@@ -112,16 +108,56 @@ impl Git {
             })
             .collect();
         skills.sort_by(|a, b| (a.kind, &a.slug).cmp(&(b.kind, &b.slug)));
+        let device = device
+            .lines()
+            .map(str::trim)
+            .find(|device| !device.is_empty())
+            .map(str::to_owned);
+        let choices = match parents.split_whitespace().collect::<Vec<_>>()[..] {
+            [first, second] => self.choices(repo, (first, second), choices, device.as_deref())?,
+            _ => Vec::new(),
+        };
         Ok(SyncChange {
             commit: commit.to_owned(),
             at,
-            device: device
-                .lines()
-                .map(str::trim)
-                .find(|device| !device.is_empty())
-                .map(str::to_owned),
+            device,
             skills,
+            choices,
         })
+    }
+
+    /// A merge's choices, from its `trailers`: the device whose version each kept, this one for
+    /// this device's or else the newest of the remote's commits to change it, and where the
+    /// remote's won, the second parent, which holds this device's version if it kept the skill.
+    fn choices(
+        &self,
+        repo: &Path,
+        (first, second): (&str, &str),
+        trailers: &str,
+        device: Option<&str>,
+    ) -> AppResult<Vec<Choice>> {
+        let mut choices = Vec::new();
+        for (slug, side) in trailers.lines().filter_map(choice_trailer) {
+            let choice = match side {
+                Side::Local => Choice {
+                    device: device.map(str::to_owned),
+                    unpicked: None,
+                    slug,
+                    side,
+                },
+                Side::Remote => Choice {
+                    device: self
+                        .last_change(repo, &format!("{second}..{first}"), &slug)?
+                        .1,
+                    unpicked: (self.tree_at(repo, second, &slug)?).map(|_| second.to_owned()),
+                    slug,
+                    side,
+                },
+            };
+            choices.push(choice);
+        }
+        choices.sort_by(|a, b| a.slug.cmp(&b.slug));
+        Ok(choices)
     }
 }
 

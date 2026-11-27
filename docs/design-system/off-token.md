@@ -8,7 +8,7 @@ How the sweep mapped values:
 
 - Spacing, radii, icon and control sizes, and type levels take their tokens. Off-scale spacing snaps as the approved row padding did, 10 to 8 and 14 to 12; 26, 28, and 22 px boxes become the 24 px small control, as the other triggers are, and 18 px marks the 20 px large icon.
 - A zero size and a fully clear or opaque element are not values on any scale, so the ratchet does not count them.
-- The blocking wash is the `wash` opacity token (0.7); the sidebar's hover and preset tint opacities are `skillbinder_design::sidebar` metrics; a missing workspace is `disabled`; a chosen onboarding tile's border blends `inactive` foreground (it was 0.45); a chevron dimmed at 70% is plain `muted-foreground`.
+- The blocking wash is the `wash` opacity token (0.7); the sidebar's hover and preset tint opacities are `skillbinder_design::sidebar` metrics; a missing workspace is `disabled`; a selected tile's outline is `primary` (it was the foreground at 0.45); a chevron dimmed at 70% is plain `muted-foreground`.
 - Every preset tint reads the mode through `Tone::of`, so no caller checks `is_dark` itself.
 
 - **Spacing** (gap, padding, margin): 8 ×34, 6 ×23, 12 ×20, 4 ×11, 10 ×16, 2 ×12, 14 ×2, 5 ×3, 16 ×2, 36 ×2, 9, 20, 24 ×1 each. Tailwind helpers (`gap_1/2/3/4`, `px_2`, `p_4`, `pt_6`, `pb_6`) are mixed in at `custom_color.rs:95`, `library_folders.rs:69,296,408`, `library_targets.rs:49,68`, `preset_dialogs.rs:32,42`, `shell.rs:222,280`, `native_view.rs:472`, `copy_dialogs.rs:179`, `copy_changed.rs:119`, `dialogs.rs:98`, `workspace_dialogs.rs:117,123`, `workspace_page/removal.rs:97` and `skill_page.rs:60-61`.

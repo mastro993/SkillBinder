@@ -365,11 +365,14 @@ pub(super) fn apply_appearance(
     );
 }
 
-/// Local or remote changes are waiting for Push, Pull, or Sync.
+/// Local or remote changes are waiting for Push, Pull, or Sync, or choices before a Sync.
 fn needs_sync(sync: &SyncSnapshot) -> bool {
     matches!(
         sync.state,
-        SyncState::NeedsPull | SyncState::NeedsPush | SyncState::NeedsSync
+        SyncState::NeedsPull
+            | SyncState::NeedsPush
+            | SyncState::NeedsSync
+            | SyncState::NeedsResolve
     ) || sync.changed_files > 0
 }
 

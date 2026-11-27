@@ -1,5 +1,5 @@
 use super::*;
-use skillbinder_proto::{AppError, RemoteConfig};
+use skillbinder_proto::{AppError, Conflict, RemoteConfig};
 
 /// `count` changed skills, outside SkillBinder.
 fn changes(count: usize) -> Vec<ChangedSkill> {
@@ -40,14 +40,21 @@ fn sync(state: SyncState, ago: u64) -> SyncSnapshot {
     }
 }
 
-fn shown(sync: &SyncSnapshot) -> (&'static str, Tint, String, String, Option<SyncAction>) {
+fn shown(sync: &SyncSnapshot) -> (&'static str, Tint, String, String, Option<Next>) {
+    shown_chosen(sync, false)
+}
+
+fn shown_chosen(
+    sync: &SyncSnapshot,
+    chosen: bool,
+) -> (&'static str, Tint, String, String, Option<Next>) {
     let Some(Status {
         glyph,
         tint,
         title,
         line,
         main,
-    }) = status(sync, now())
+    }) = status(sync, chosen, now())
     else {
         panic!("{:?} shows the setup column", sync.state);
     };
@@ -85,7 +92,7 @@ fn each_state_shows_its_glyph_title_line_and_one_next_action() {
                 Tint::Accent,
                 s("3 skills changed on this device"),
                 s("Not pushed yet"),
-                Some(SyncAction::Push),
+                Some(Next::Run(SyncAction::Push)),
             ),
         ),
         (
@@ -95,7 +102,7 @@ fn each_state_shows_its_glyph_title_line_and_one_next_action() {
                 Tint::Accent,
                 s("1 skill changed on MacBook Air"),
                 s("Not pulled yet"),
-                Some(SyncAction::Pull),
+                Some(Next::Run(SyncAction::Pull)),
             ),
         ),
         (
@@ -105,7 +112,7 @@ fn each_state_shows_its_glyph_title_line_and_one_next_action() {
                 Tint::Accent,
                 s("2 skills changed on the remote"),
                 s("Not pulled yet"),
-                Some(SyncAction::Pull),
+                Some(Next::Run(SyncAction::Pull)),
             ),
         ),
         (
@@ -114,8 +121,8 @@ fn each_state_shows_its_glyph_title_line_and_one_next_action() {
                 "git-merge",
                 Tint::Accent,
                 s("Changes on both sides"),
-                s("3 here, 2 from MacBook Air and 1 more"),
-                Some(SyncAction::Sync),
+                s("3 here, 2 from MacBook Air and 1 more · none on the same skill"),
+                Some(Next::Run(SyncAction::Sync)),
             ),
         ),
         (
@@ -125,14 +132,104 @@ fn each_state_shows_its_glyph_title_line_and_one_next_action() {
                 Tint::Danger,
                 s("Can't reach the remote"),
                 s("Last checked 2 hours ago · Could not resolve host."),
-                Some(SyncAction::Refresh),
+                Some(Next::Run(SyncAction::Refresh)),
             ),
         ),
     ];
     for (sync, expected) in cases {
         assert_eq!(shown(&sync), expected, "{:?}", sync.state);
     }
-    assert_eq!(status(&SyncSnapshot::default(), now()), None);
+    assert_eq!(status(&SyncSnapshot::default(), false, now()), None);
+}
+
+fn side(device: Option<&str>, at: Option<u64>) -> ConflictSide {
+    ConflictSide {
+        kind: ChangeKind::Changed,
+        reason: Some(Reason::Updated),
+        device: device.map(str::to_owned),
+        at,
+        version: String::new(),
+    }
+}
+
+#[test]
+fn skills_changed_on_both_sides_ask_for_a_choice_then_sync() {
+    let mut conflict = sync(SyncState::NeedsResolve, 0);
+    conflict.conflicts = ["review", "notes"]
+        .map(|slug| Conflict {
+            slug: slug.to_owned(),
+            local: side(None, None),
+            remote: side(Some("MacBook Air"), None),
+        })
+        .to_vec();
+    let s = str::to_owned;
+    assert_eq!(
+        shown_chosen(&conflict, false),
+        (
+            "git-merge-conflict",
+            Tint::Warning,
+            s("2 skills changed on both sides"),
+            s("Choose which version to keep"),
+            Some(Next::Resolve),
+        )
+    );
+    assert_eq!(main_label(Next::Resolve), "Resolve…");
+    let (.., line, main) = shown_chosen(&conflict, true);
+    assert_eq!(
+        (line.as_str(), main),
+        (
+            "Choices made · Sync to finish",
+            Some(Next::Run(SyncAction::Sync))
+        )
+    );
+}
+
+#[test]
+fn resolve_names_each_side_with_why_and_when() {
+    assert_eq!(
+        resolve_intro("MacBook Air", 1),
+        "This device and MacBook Air both changed this skill. Choose the version to keep. The \
+         other is still in History."
+    );
+    assert!(resolve_intro("MacBook Air", 2).contains("both changed these skills."));
+    let at = NOW.unsigned_abs() - 7_200;
+    assert_eq!(
+        side_card(Side::Local, &side(None, None), "Studio", now()),
+        (
+            s("This device (Studio)"),
+            s("Updated from its source · Not pushed")
+        )
+    );
+    assert_eq!(
+        side_card(
+            Side::Remote,
+            &side(Some("MacBook Air"), Some(at)),
+            "Studio",
+            now()
+        ),
+        (s("MacBook Air"), s("Updated from its source · 2 hours ago"))
+    );
+    assert_eq!(
+        merge_on_their_own(1),
+        "1 other skill changed on only one side and merges on its own."
+    );
+    assert_eq!(
+        merge_on_their_own(3),
+        "3 other skills changed on only one side and merge on their own."
+    );
+    let mut both = sync(SyncState::NeedsResolve, 0);
+    both.local = changes(3);
+    both.incoming = incoming(&["MacBook Air"], 2);
+    // skill-0 and skill-1 changed on both sides; only skill-2 changed on one.
+    assert_eq!(one_sided(&both), 1);
+    assert_eq!(chosen(Side::Local), "Keeping this device's");
+    assert_eq!(chosen(Side::Remote), "Taking this one");
+    assert_eq!(kept(Some("Laptop"), "review"), "Kept Laptop's review");
+    assert_eq!(kept(None, "review"), "Kept the remote's review");
+}
+
+fn s(text: &str) -> String {
+    text.to_owned()
 }
 
 #[test]
@@ -177,7 +274,7 @@ fn actions_read_as_they_run_and_end_with_a_toast_naming_the_remote() {
         ),
         (SyncAction::Refresh, "Try again", "Checking…", None),
     ] {
-        assert_eq!(main_label(action), label);
+        assert_eq!(main_label(Next::Run(action)), label);
         assert_eq!(running(action), running_label);
         assert_eq!(done(action, remote).as_deref(), toast);
     }

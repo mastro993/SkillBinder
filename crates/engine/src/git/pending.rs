@@ -16,11 +16,11 @@ use std::{
 /// What the commits of a range say: who made them, when the newest was made, and the newest
 /// reason each slug carries.
 #[derive(Default)]
-struct Notes {
+pub(super) struct Notes {
     /// Newest first, each once.
-    devices: Vec<String>,
-    at: Option<u64>,
-    reasons: BTreeMap<String, Reason>,
+    pub(super) devices: Vec<String>,
+    pub(super) at: Option<u64>,
+    pub(super) reasons: BTreeMap<String, Reason>,
 }
 
 impl Git {
@@ -133,7 +133,7 @@ impl Git {
     }
 
     /// What the commits after `base` up to `tip` say, or every commit up to `tip` without one.
-    fn notes(&self, repo: &Path, base: Option<&str>, tip: &str) -> AppResult<Notes> {
+    pub(super) fn notes(&self, repo: &Path, base: Option<&str>, tip: &str) -> AppResult<Notes> {
         let range = match base {
             Some(base) => format!("{base}..{tip}"),
             None => tip.to_owned(),
@@ -167,7 +167,12 @@ impl Git {
     }
 
     /// The best common ancestor of two commits, if they share one.
-    fn merge_base(&self, repo: &Path, one: &str, other: &str) -> AppResult<Option<String>> {
+    pub(super) fn merge_base(
+        &self,
+        repo: &Path,
+        one: &str,
+        other: &str,
+    ) -> AppResult<Option<String>> {
         let args = ["merge-base", one, other];
         let out = process::run(
             &self.program,

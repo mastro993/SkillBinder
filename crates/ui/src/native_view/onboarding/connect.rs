@@ -13,21 +13,19 @@ use super::super::git_setup::READY_FOR;
 use super::super::{Effect, NativeView};
 use super::StepView;
 use super::offers::Link;
-use super::tile::Tile;
 use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
 use gpui_kit::{
     AnyElement, Context, InteractiveElement, IntoElement, ParentElement, Styled, div, px,
 };
 use skillbinder_design::tokens::{space, text};
 use skillbinder_design::{
-    AvatarStack, Button, IconSize, Notice, NoticeSize, Spinner, Status, Text, TextTone,
+    AvatarStack, Button, IconSize, Notice, NoticeSize, SelectTile, Spinner, Status, Text, TextTone,
 };
 use skillbinder_proto::{
     AgentOption, AppResult, CommandLineState, McpClient, McpClientState, McpClientStatus,
     McpConnect,
 };
 use std::collections::{BTreeMap, BTreeSet};
-use std::rc::Rc;
 
 const TITLE: &str = "Use SkillBinder with your agents";
 const LEAD: &str = "Your agents can find, install, and turn on skills for you. You can change \
@@ -250,20 +248,22 @@ impl NativeView {
             None => (None, None),
         };
         let toggles = !connected && matches!(link, None | Some(Link::Failed(_)));
-        let tile = Tile {
-            id,
-            name: client.name().into(),
-            logo: AvatarStack::new([agent_logo(client.agent())]).into_any_element(),
-            detail,
-            chosen: connected || !self.offers.unticked.contains(&client),
-            corner,
-        };
-        let toggle: Option<super::tile::Toggle> = toggles.then(|| {
-            Rc::new(move |view: &mut Self, cx: &mut Context<Self>| {
-                view.toggle_connect(client, cx);
-            }) as super::tile::Toggle
-        });
-        self.tile(tile, toggle, cx)
+        let mut tile = SelectTile::checkbox(id, client.name())
+            .media(AvatarStack::new([agent_logo(client.agent())]))
+            .selected(connected || !self.offers.unticked.contains(&client));
+        if let Some(detail) = detail {
+            tile = tile.detail(detail);
+        }
+        if let Some(corner) = corner {
+            tile = tile.corner(corner);
+        }
+        if toggles {
+            let view = cx.entity().downgrade();
+            tile = tile.on_select(move |_, cx| {
+                let _ = view.update(cx, |view, cx| view.toggle_connect(client, cx));
+            });
+        }
+        tile.into_any_element()
     }
 
     fn toggle_connect(&mut self, client: McpClient, cx: &mut Context<Self>) {

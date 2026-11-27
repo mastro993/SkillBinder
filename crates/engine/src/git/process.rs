@@ -27,6 +27,19 @@ pub(super) fn run(
     timeout: Duration,
     shutdown: Option<&Shutdown>,
 ) -> AppResult<Output> {
+    run_indexed(program, repo, None, args, timeout, shutdown)
+}
+
+/// [`run`] with `index` as the index file instead of the repository's own, so a merge can build
+/// a tree without touching the library's index.
+pub(super) fn run_indexed(
+    program: &Program,
+    repo: Option<&Path>,
+    index: Option<&Path>,
+    args: &[&str],
+    timeout: Duration,
+    shutdown: Option<&Shutdown>,
+) -> AppResult<Output> {
     if let Some(repo) = repo {
         require_raw_attributes(repo)?;
     }
@@ -45,6 +58,9 @@ pub(super) fn run(
             .env("HOME", home)
             .env_remove("XDG_CONFIG_HOME")
             .env("GIT_CONFIG_NOSYSTEM", "1");
+    }
+    if let Some(index) = index {
+        command.env("GIT_INDEX_FILE", index);
     }
     let null = if cfg!(windows) { "NUL" } else { "/dev/null" };
     command

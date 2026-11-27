@@ -1,16 +1,19 @@
 //! The Sync page (Y1): while a remote is set, the status with one next action, the remote's
 //! facts, with this device's name, under it, the skills not synced yet, and History; otherwise
-//! the setup column, or what to do without Git (Y10).
+//! the setup column, or what to do without Git (Y10). A Sync while skills changed on both sides
+//! keeps the side chosen for each (Y9).
 
 mod copy;
 mod dialogs;
 mod history;
 mod pending;
+mod resolve;
 mod restore;
 mod setup;
 mod status;
 
 pub(super) use history::HistoryPages;
+pub(super) use resolve::Choices;
 pub(super) use restore::Restoring;
 
 use super::{Effect, NativeView};
@@ -27,6 +30,9 @@ impl NativeView {
     pub(super) fn synchronize(&mut self, action: SyncAction, cx: &mut Context<Self>) {
         if self.blocked() {
             return;
+        }
+        if action == SyncAction::Sync && self.snapshot.sync.state == SyncState::NeedsResolve {
+            return self.resolve_sync(cx);
         }
         let client = self.client.clone();
         let address = self
@@ -77,6 +83,7 @@ impl NativeView {
             .child(status::facts(&remote, &self.snapshot.sync.device, cx))
             .children(pending::pending(
                 &self.snapshot.sync,
+                &self.sync_choices,
                 chrono::Utc::now(),
                 discards,
                 cx,

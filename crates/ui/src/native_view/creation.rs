@@ -176,6 +176,7 @@ impl NativeView {
             found_flash: None,
             skill_load: None,
             sync_history: sync::HistoryPages::default(),
+            sync_choices: sync::Choices::default(),
             search,
             preset_name,
             folder_name,

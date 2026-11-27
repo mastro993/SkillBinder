@@ -1,9 +1,10 @@
 //! History (Y6): the library's published changes by day, each with the device that made it, its
 //! skills as chips, and its time; a change opens in place to list its skills, each with why and
-//! Restore this version, Bring back, or Current version. The
+//! Restore this version, Bring back, or Current version, and a merge's choices. The
 //! engine reads it a page of 50 at a time (A3), again from the newest whenever the library's
 //! commit moves, and the changes that move added flash once.
 
+mod choices;
 mod days;
 
 use super::super::NativeView;
@@ -287,7 +288,11 @@ impl NativeView {
                 let when = (days::day(change, now), time.clone());
                 self.restore_button(change, skill, when, cx)
             };
-            skills.push(pending::row(&id, skill, Some(end), cx).into_any_element());
+            skills.push(pending::row(&id, skill, false, Some(end), cx).into_any_element());
+        }
+        if open {
+            let when = (days::day(change, now), time.clone());
+            skills.extend(self.choice_rows(change, &id, &when, cx));
         }
         v_flex()
             .id(SharedString::from(id.clone()))

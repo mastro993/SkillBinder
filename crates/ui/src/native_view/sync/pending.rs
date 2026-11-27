@@ -1,12 +1,14 @@
 //! Not synced yet (Y5): what a Push sends, under this device, and what a Pull brings, under the
-//! devices that changed it, each skill with its kind and why, and this device's with Discard.
+//! devices that changed it, each skill with its kind and why, and this device's with Discard. A
+//! skill changed on both sides is tagged, and the remote's row says which side was chosen.
 //! Hidden while nothing waits.
 
 use super::copy;
+use super::resolve::Choices;
 use super::restore::ROW;
 use super::status::tinted;
 use chrono::{DateTime, Utc};
-use gpui_kit::component::{ActiveTheme, Sizable, h_flex, v_flex};
+use gpui_kit::component::{ActiveTheme, Sizable, h_flex, tag::Tag, v_flex};
 use gpui_kit::{
     AnyElement, App, InteractiveElement, IntoElement, ParentElement, SharedString,
     StatefulInteractiveElement, Styled, div, prelude::FluentBuilder, px,
@@ -17,9 +19,11 @@ use skillbinder_design::{
 };
 use skillbinder_proto::{ChangedSkill, SyncSnapshot};
 
-/// The section, while anything waits on either side; `discards` ends each of this device's rows.
+/// The section, while anything waits on either side; `discards` ends each of this device's rows,
+/// and `choices` the remote's rows of skills changed on both sides.
 pub(super) fn pending(
     sync: &SyncSnapshot,
+    choices: &Choices,
     now: DateTime<Utc>,
     discards: Vec<AnyElement>,
     cx: &App,
@@ -28,6 +32,7 @@ pub(super) fn pending(
         .incoming
         .as_ref()
         .filter(|incoming| !incoming.skills.is_empty());
+    let both = |slug: &str| sync.conflicts.iter().any(|c| c.slug == slug);
     let mut groups = Vec::new();
     if !sync.local.is_empty() {
         let head = device(
@@ -41,7 +46,8 @@ pub(super) fn pending(
             head,
             "Not pushed".to_owned(),
             &sync.local,
-            discards,
+            discards.into_iter().map(Some).collect(),
+            &both,
             cx,
         ));
     }
@@ -53,12 +59,27 @@ pub(super) fn pending(
             cx,
         );
         let end = copy::not_pulled(incoming, now);
+        let chosen = (incoming.skills.iter())
+            .map(|skill| {
+                let side = choices.of(&skill.slug).filter(|_| both(&skill.slug))?;
+                Some(
+                    Text::labeled(
+                        SharedString::from(format!("sync-incoming-chosen-{}", skill.slug)),
+                        copy::chosen(side),
+                    )
+                    .level(text::CAPTION)
+                    .muted()
+                    .into_any_element(),
+                )
+            })
+            .collect();
         groups.push(group(
             "sync-incoming",
             head,
             end,
             &incoming.skills,
-            Vec::new(),
+            chosen,
+            &both,
             cx,
         ));
     }
@@ -89,14 +110,15 @@ pub(super) fn pending(
     )
 }
 
-/// One side: its device and, at its end, `end`, over a row per skill, which ends with its
-/// element of `ends`, if any.
+/// One side: its device and, at its end, `end`, over a row per skill, tagged if `both` sides
+/// changed it, which ends with its element of `ends`, if any.
 fn group(
     id: &'static str,
     head: AnyElement,
     end: String,
     skills: &[ChangedSkill],
-    ends: Vec<AnyElement>,
+    ends: Vec<Option<AnyElement>>,
+    both: &dyn Fn(&str) -> bool,
     cx: &App,
 ) -> impl IntoElement {
     let head = h_flex()
@@ -113,12 +135,8 @@ fn group(
         );
     v_flex().id(id).pb(px(space::XS)).child(head).children(
         (skills.iter())
-            .zip(
-                ends.into_iter()
-                    .map(Some)
-                    .chain(std::iter::repeat_with(|| None)),
-            )
-            .map(|(skill, end)| row(id, skill, end, cx)),
+            .zip(ends.into_iter().chain(std::iter::repeat_with(|| None)))
+            .map(|(skill, end)| row(id, skill, both(&skill.slug), end, cx)),
     )
 }
 
@@ -147,11 +165,12 @@ pub(super) fn device(id: SharedString, name: Option<String>, this: bool, cx: &Ap
         .into_any_element()
 }
 
-/// A skill: its kind mark, its slug in bold, why it changed in muted text, and `end` at its end,
-/// which the row's hover can show.
+/// A skill: its kind mark, its slug in bold, a "Changed on both" tag if `both` sides changed it,
+/// why it changed in muted text, and `end` at its end, which the row's hover can show.
 pub(super) fn row(
     group: &str,
     skill: &ChangedSkill,
+    both: bool,
     end: Option<AnyElement>,
     cx: &App,
 ) -> impl IntoElement {
@@ -174,6 +193,13 @@ pub(super) fn row(
                 .level(text::LABEL_MD),
             ),
         )
+        .when(both, |row| {
+            row.child(
+                div()
+                    .flex_none()
+                    .child(Tag::warning().small().child("Changed on both")),
+            )
+        })
         .children(copy::why(skill).map(|why| {
             div().min_w_0().truncate().child(
                 Text::labeled(SharedString::from(format!("{group}-why-{slug}")), why)

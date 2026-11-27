@@ -76,7 +76,7 @@ The user settled these on 2026-11-26. Behavior comes from [the spec](../../specs
   | outside | Changed outside SkillBinder, or Removed outside SkillBinder for a removed skill |
 - **Y9** Resolve… opens a medium dialog, "Resolve changes on both sides".
   - It opens with one line: "This device and <device> both changed this skill (these skills). Choose the version to keep. The other is still in History."
-  - Then, for each conflicting skill: its slug, then two side-by-side radio cards. Each card shows the side's name ("This device (<name>)" or the device) and its why and time.
+  - Then, for each conflicting skill: its slug, then two side-by-side radio cards of equal height. Each card shows the side's name ("This device (<name>)" or the device) and its why and time. The cards are the design system's select tile, as onboarding's agent tiles are (user's pick, 2026-11-27): the radio at the top right, and a 2-point primary outline on the chosen card.
   - A muted line follows: "<n> other skills changed on only one side and merge on their own."
   - The footer has Cancel and a primary Sync. Sync is inactive until every skill has a choice. Choices are kept until a Sync or a new Refresh changes the conflicts.
 - **Y10** Not connected replaces the page with a setup column, at most 460 points wide:

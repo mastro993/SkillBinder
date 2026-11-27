@@ -97,7 +97,7 @@ impl Git {
     }
 
     /// The id of the `kind` entry at `path` in the commit `commit`, if it holds one.
-    fn entry_at(
+    pub(super) fn entry_at(
         &self,
         repo: &Path,
         commit: &str,

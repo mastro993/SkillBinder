@@ -1,8 +1,10 @@
 //! Sync's requests and changes: History, connecting a remote, renaming this device, each Git
-//! operation, and Restore and Discard.
+//! operation, the Sync that keeps a chosen side of each skill changed on both, and Restore and
+//! Discard.
 
 use crate::Client;
 use skillbinder_proto::*;
+use std::collections::BTreeMap;
 
 impl Client {
     /// Reads a page of History: up to `limit` changes after the commit `before`, or the newest
@@ -48,6 +50,17 @@ impl Client {
         let synchronized = self.synchronized(action).await;
         self.publish_syncing(None);
         synchronized
+    }
+    /// Syncs a library both sides changed, keeping the side `chosen` for each skill changed on
+    /// both, publishing it as a running Sync, then scans again, since it may rewrite your agents'
+    /// copies.
+    pub async fn resolve_sync(&self, chosen: BTreeMap<String, Side>) -> AppResult<SyncSnapshot> {
+        self.publish_syncing(Some(SyncAction::Sync));
+        let resolved = self.shared.engine.resolve_sync(chosen).await;
+        self.spawn_scan();
+        let resolved = self.refresh_preserving_outcome(resolved).await;
+        self.publish_syncing(None);
+        resolved
     }
     /// Synchronizes or refreshes the remote. A Pull or Sync may rewrite your agents' copies, so
     /// it scans again.

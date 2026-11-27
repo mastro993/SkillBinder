@@ -1,6 +1,6 @@
 //! History (ADR 0038): the library's published changes, newest first, a page at a time.
 
-use super::ChangedSkill;
+use super::{ChangedSkill, Choice};
 use serde::{Deserialize, Serialize};
 
 /// One commit on the library's first-parent chain: who made it, when, and the skills it changed.
@@ -13,8 +13,12 @@ pub struct SyncChange {
     /// The device that made it; none for a commit made before device names.
     pub device: Option<String>,
     /// Each skill it changed against its first parent, added first, then changed, then removed,
-    /// each by slug.
+    /// each by slug. A merge's first parent is the remote's commit, so these are what the device
+    /// that merged contributed.
     pub skills: Vec<ChangedSkill>,
+    /// For a merge, each skill changed on both sides and whose version it kept, by slug.
+    #[serde(default)]
+    pub choices: Vec<Choice>,
 }
 
 /// A page of History.

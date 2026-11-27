@@ -2,7 +2,7 @@
 
 use super::{Engine, State, action::Action};
 use crate::{
-    git::Committer,
+    git::{Committer, Merge},
     logging::{Area, Level},
     pending_changes,
     reconcile::RECONCILED_HEAD,
@@ -42,7 +42,23 @@ impl Engine {
             SyncAction::Disconnect => Action::Disconnect,
         };
         self.action(logged, Vec::new(), |engine| async move {
-            engine.call(move |state| state.synchronize(action)).await
+            engine
+                .call(move |state| state.synchronize(action, &BTreeMap::new()))
+                .await
+        })
+        .await
+    }
+    /// Syncs a library both sides changed, keeping the side `chosen` for each skill changed on
+    /// both (ADR 0039); refuses unless every such skill has one.
+    pub async fn resolve_sync(&self, chosen: BTreeMap<String, Side>) -> AppResult<SyncSnapshot> {
+        let subject = chosen
+            .iter()
+            .map(|(slug, side)| ("choice", format!("{slug} {}", side.word())))
+            .collect();
+        self.action(Action::ResolveSync, subject, |engine| async move {
+            engine
+                .call(move |state| state.synchronize(SyncAction::Sync, &chosen))
+                .await
         })
         .await
     }
@@ -73,7 +89,11 @@ impl Engine {
 }
 
 impl State {
-    pub(super) fn synchronize(&mut self, action: SyncAction) -> AppResult<SyncSnapshot> {
+    pub(crate) fn synchronize(
+        &mut self,
+        action: SyncAction,
+        chosen: &BTreeMap<String, Side>,
+    ) -> AppResult<SyncSnapshot> {
         self.require_recovered()?;
         let remote: Option<RemoteConfig> = self.setting("remote")?.flatten();
         let git = self
@@ -84,7 +104,11 @@ impl State {
         let current = matches!(action, SyncAction::Push)
             && git.revision(&repo, "HEAD").ok()
                 == Some(self.setting::<Option<String>>(RECONCILED_HEAD)?.flatten());
-        let result = git.perform_with(&repo, remote.as_ref(), action, &Commits(self));
+        let result = git.perform_with(&repo, remote.as_ref(), action, chosen, &Commits(self));
+        // A merge that failed after its journal row finishes now, or else at the next launch.
+        if result.is_err() && !self.recover_merge().unwrap_or(false) {
+            self.recovery_required = true;
+        }
         // A Push only commits what the database already holds. A Pull or Sync, including one
         // that fast-forwarded before its push failed, reconciles what moved.
         let caught_up = match action {
@@ -152,5 +176,11 @@ impl Committer for Commits<'_> {
     }
     fn committed(&self) -> AppResult<()> {
         pending_changes::clear(&mut self.0.database.borrow_mut())
+    }
+    fn merging(&self, merge: &Merge) -> AppResult<()> {
+        self.0.save_merge(merge)
+    }
+    fn merged(&self) -> AppResult<()> {
+        self.0.forget_merge()
     }
 }

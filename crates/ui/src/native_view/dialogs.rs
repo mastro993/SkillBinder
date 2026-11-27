@@ -173,6 +173,7 @@ impl NativeView {
             DialogState::Disconnect => self.disconnect_dialog(dialog, cx),
             DialogState::DiscardChange(skill) => self.discard_dialog(dialog, skill, cx),
             DialogState::RestoreVersion(restoring) => self.restore_dialog(dialog, restoring, cx),
+            DialogState::ResolveSync => self.resolve_dialog(dialog, cx),
         }
     }
 }

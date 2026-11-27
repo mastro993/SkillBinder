@@ -159,6 +159,8 @@ enum DialogState {
     DiscardChange(ChangedSkill),
     /// History's Restore this version or Bring back, which asks before it writes (Y7).
     RestoreVersion(Box<sync::Restoring>),
+    /// Resolve…, which asks which version to keep of each skill changed on both sides (Y9).
+    ResolveSync,
     None,
 }
 
@@ -274,6 +276,8 @@ pub struct NativeView {
     skill_load: Option<Task<()>>,
     /// The pages of the Sync page's History read so far.
     sync_history: sync::HistoryPages,
+    /// The side chosen for each skill changed on both sides, for Resolve… and Sync.
+    sync_choices: sync::Choices,
     search: Entity<InputState>,
     preset_name: Entity<InputState>,
     folder_name: Entity<InputState>,

@@ -33,6 +33,7 @@ fn change(commit: &str, when: DateTime<FixedOffset>, slugs: &[&str]) -> SyncChan
                 reason: None,
             })
             .collect(),
+        choices: Vec::new(),
     }
 }
 
