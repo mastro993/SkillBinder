@@ -1,4 +1,4 @@
-use super::{drift_text, files_changed, moved_text, place, update_inactive};
+use super::{drift_text, files_changed, moved_text, place};
 use skillbinder_proto::{Moved, SkillId, SkillSource};
 
 #[test]
@@ -36,14 +36,4 @@ fn the_drift_notice_says_local_edits_show_as_removed_lines() {
         drift_text(&SkillId("pdf".to_owned())),
         "pdf was changed outside SkillBinder. Updating replaces those changes too; they show as removed lines."
     );
-}
-
-#[test]
-fn update_waits_for_the_changes_and_for_other_work_to_end() {
-    // Fetching, or failed: nothing to update.
-    assert!(update_inactive(false, false));
-    // Another change, an Update all, or a Git operation runs.
-    assert!(update_inactive(true, true));
-    // Once it ends, the next frame offers Update again.
-    assert!(!update_inactive(true, false));
 }

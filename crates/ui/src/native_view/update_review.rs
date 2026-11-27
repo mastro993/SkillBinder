@@ -95,6 +95,7 @@ impl NativeView {
 
     /// Shows what Update did: an update that landed or failed closes the dialog, and the page
     /// shows the result as Update's always did (A5); changes that moved replace the reviewed ones.
+    /// An error before any update, such as Git gone, shows as itself, since no fetch failed.
     pub(super) fn update_landed(
         &mut self,
         outcome: AppResult<ReviewedOutcome>,
@@ -104,15 +105,27 @@ impl NativeView {
             return;
         };
         let id = dialog.id.clone();
+        let outcome = match outcome {
+            Ok(outcome) => outcome,
+            Err(error) => {
+                if let DialogState::UpdateReview(dialog) = &mut self.dialog {
+                    dialog.phase = Phase::Failed {
+                        message: error.message,
+                        retry: false,
+                    };
+                }
+                cx.notify();
+                return;
+            }
+        };
         match outcome {
-            Ok(ReviewedOutcome::Updated(outcome)) => {
+            ReviewedOutcome::Updated(outcome) => {
                 self.dialog = DialogState::None;
                 self.show_update_outcome(outcome, cx);
             }
-            Ok(ReviewedOutcome::Moved { moved, review }) => {
+            ReviewedOutcome::Moved { moved, review } => {
                 self.reviewed_changes(&id, Ok(*review), Some(moved), cx);
             }
-            Err(error) => self.reviewed_changes(&id, Err(error), None, cx),
         }
     }
 

@@ -98,10 +98,9 @@ impl NativeView {
             .label(if updating { "Updating…" } else { "Update" })
             .primary()
             .loading(updating)
-            .inactive(update_inactive(
-                matches!(review.phase, Phase::Ready { .. }),
-                self.update_refused(),
-            ))
+            // Inactive until changes show, and while other work runs (behavior 7); the view
+            // renders again on each snapshot, so it turns active once that work ends.
+            .inactive(!matches!(review.phase, Phase::Ready { .. }) || self.update_refused())
             .on_click(cx.listener(|view, _, _, cx| view.update_reviewed(cx)));
         DialogFooter::new()
             .leading(
@@ -163,12 +162,6 @@ fn files_changed(count: usize) -> String {
         1 => "· 1 file changed ·".to_owned(),
         count => format!("· {count} files changed ·"),
     }
-}
-
-/// Whether Update is inactive: until changes are `ready`, and while it or another change, an
-/// Update all, or a Git operation runs (behavior 7), so it turns active again once they end.
-fn update_inactive(ready: bool, refused: bool) -> bool {
-    !ready || refused
 }
 
 /// The skill's local edits, which the changes show as removed lines (R8).
