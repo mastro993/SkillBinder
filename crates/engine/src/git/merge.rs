@@ -86,12 +86,12 @@ impl Git {
         Ok(conflicting)
     }
 
-    /// `slug`'s skill directory and record entries in `tree`, which match only for the same
-    /// version.
+    /// `slug`'s skill directory and record in `tree`, as the mode and object id of each, which
+    /// match only for the same version.
     fn skill_version(&self, repo: &Path, tree: &str, slug: &str) -> AppResult<String> {
         let record = format!("records/{slug}.toml");
         let skill = format!("skills/{slug}");
-        self.output(
+        let entries = self.output(
             repo,
             &[
                 "--literal-pathspecs",
@@ -102,7 +102,16 @@ impl Git {
                 &skill,
                 &record,
             ],
-        )
+        )?;
+        Ok(entries
+            .split('\0')
+            .filter_map(|entry| {
+                let mut fields = entry.split_once('\t')?.0.split(' ');
+                let (mode, _, id) = (fields.next()?, fields.next()?, fields.next()?);
+                Some(format!("{mode}:{id}"))
+            })
+            .collect::<Vec<_>>()
+            .join(" "))
     }
 
     /// The skills changed on both sides to different versions: this device's, on disk as `here`,
@@ -130,11 +139,14 @@ impl Git {
                         reason: skill.reason.clone(),
                         device: None,
                         at: None,
+                        version: String::new(),
                     })
             };
-            let (Some(local), Some(mut remote)) = (side(local), side(remote)) else {
+            let (Some(mut local), Some(mut remote)) = (side(local), side(remote)) else {
                 continue;
             };
+            local.version = self.skill_version(repo, here, &slug)?;
+            remote.version = self.skill_version(repo, incoming, &slug)?;
             (remote.at, remote.device) = self.last_change(repo, &range, &slug)?;
             conflicts.push(Conflict {
                 slug,

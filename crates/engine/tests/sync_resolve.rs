@@ -54,15 +54,22 @@ async fn sync_refuses_until_each_skill_changed_on_both_sides_has_a_choice() {
         panic!("one conflict: {:?}", conflict.conflicts);
     };
     assert_eq!(slug, "alpha");
-    let changed = |device: Option<&str>, at| ConflictSide {
+    let changed = |device: Option<&str>, at, version: &String| ConflictSide {
         kind: ChangeKind::Changed,
         reason: Some(Reason::Outside),
         device: device.map(str::to_owned),
         at,
+        version: version.clone(),
     };
-    assert_eq!(*local, changed(None, None));
-    assert_eq!(*remote, changed(Some("Studio Mac"), remote.at));
+    assert_eq!(*local, changed(None, None, &local.version));
+    assert_eq!(
+        *remote,
+        changed(Some("Studio Mac"), remote.at, &remote.version)
+    );
     assert!(remote.at.is_some());
+    // Each side names its version, the skill directory's and the record's mode and id.
+    assert!(local.version.contains("040000:"), "{}", local.version);
+    assert_ne!(local.version, remote.version);
 
     let published = pair.published();
     let missing = "Choose which version to keep of each skill changed on both sides.";

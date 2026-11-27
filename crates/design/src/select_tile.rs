@@ -6,7 +6,8 @@
 //! each drawn as the whole tile: a click, or Enter or Space while it has focus, selects it, and
 //! Kit's focus ring shows on it. A selected tile is outlined 2 points in `primary`. A tile with a
 //! corner, such as a connected mark or a spinner, shows it in place of the indicator and is no
-//! control.
+//! control; so is a tile with nothing to run when selected, which shows its indicator as a
+//! picture.
 
 use crate::Checkbox;
 use crate::Text;
@@ -102,7 +103,8 @@ impl SelectTile {
         }
     }
 
-    /// Runs `handler` when the tile is selected, or toggled for a checkbox.
+    /// Runs `handler` when the tile is selected, or toggled for a checkbox; without one the tile
+    /// is no control.
     pub fn on_select(self, handler: impl Fn(&mut Window, &mut App) + 'static) -> Self {
         Self {
             on_select: Some(Rc::new(handler)),
@@ -137,36 +139,49 @@ impl RenderOnce for SelectTile {
                     .child(Text::labeled(format!("{id}-name"), name.clone()).level(text::TITLE_SM))
                     .children(detail),
             );
-        if let Some(corner) = corner {
+        let Some(select) = on_select.filter(|_| corner.is_none()) else {
+            // A tile that selects nothing is no control: it shows its corner, or its indicator
+            // as a picture.
+            let corner = corner.unwrap_or_else(|| indicator(pick, &id, selected));
             return frame(div().id(id).aria_label(name), selected, theme)
                 .child(div().flex_none().child(corner))
                 .child(content)
                 .into_any_element();
-        }
+        };
         match pick {
             Pick::Many => {
                 let tile = Checkbox::new(id)
                     .checked(selected)
                     .accessibility_label(name)
-                    .child(content);
-                let tile = match on_select {
-                    Some(select) => tile.on_change(move |_, window, cx| select(window, cx)),
-                    None => tile,
-                };
+                    .child(content)
+                    .on_change(move |_, window, cx| select(window, cx));
                 frame(tile, selected, theme).into_any_element()
             }
             Pick::One => {
                 let tile = Radio::new(id)
                     .checked(selected)
                     .accessibility_label(name)
-                    .child(content);
-                let tile = match on_select {
-                    Some(select) => tile.on_click(move |_, window, cx| select(window, cx)),
-                    None => tile,
-                };
+                    .child(content)
+                    .on_click(move |_, window, cx| select(window, cx));
                 frame(tile.cursor_pointer(), selected, theme).into_any_element()
             }
         }
+    }
+}
+
+/// The indicator of a tile that selects nothing: the checkbox's box alone, with no role of its
+/// own, or an inactive radio.
+fn indicator(pick: Pick, id: &ElementId, selected: bool) -> AnyElement {
+    match pick {
+        Pick::Many => Checkbox::new(format!("{id}-check"))
+            .checked(selected)
+            .indicator()
+            .into_any_element(),
+        Pick::One => Radio::new(format!("{id}-radio"))
+            .checked(selected)
+            .disabled(true)
+            .tab_stop(false)
+            .into_any_element(),
     }
 }
 

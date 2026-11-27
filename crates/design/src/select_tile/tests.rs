@@ -18,8 +18,12 @@ fn a_tile_is_a_checkbox_or_a_radio_named_after_it(cx: &mut TestAppContext) {
                     .on_select(|_, _| {}),
             )
             .child(SelectTile::checkbox("zed", "Zed").on_select(|_, _| {}))
-            .child(SelectTile::radio("laptop", "Laptop").selected(true))
-            .child(SelectTile::radio("here", "This device"))
+            .child(
+                SelectTile::radio("laptop", "Laptop")
+                    .selected(true)
+                    .on_select(|_, _| {}),
+            )
+            .child(SelectTile::radio("here", "This device").on_select(|_, _| {}))
             .into_any_element()
     })
     .frame(cx);
@@ -42,7 +46,7 @@ fn a_tile_is_a_checkbox_or_a_radio_named_after_it(cx: &mut TestAppContext) {
 }
 
 #[gpui_kit::test]
-fn a_tile_with_a_corner_is_no_control(cx: &mut TestAppContext) {
+fn a_tile_with_a_corner_or_nothing_to_select_is_no_control(cx: &mut TestAppContext) {
     let frame = Drawn::show(cx, |_, _| {
         div()
             .w_full()
@@ -51,11 +55,13 @@ fn a_tile_with_a_corner_is_no_control(cx: &mut TestAppContext) {
                     .selected(true)
                     .corner(Text::new("Connected")),
             )
+            .child(SelectTile::checkbox("cursor", "Cursor").selected(true))
             .into_any_element()
     })
     .frame(cx);
     assert!(named(&frame, Role::CheckBox).is_empty());
     assert!(node(&frame, "claude-name").is_some());
+    assert!(node(&frame, "cursor-name").is_some());
 }
 
 thread_local! {

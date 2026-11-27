@@ -148,6 +148,7 @@ fn side(device: Option<&str>, at: Option<u64>) -> ConflictSide {
         reason: Some(Reason::Updated),
         device: device.map(str::to_owned),
         at,
+        version: String::new(),
     }
 }
 

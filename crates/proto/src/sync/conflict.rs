@@ -57,6 +57,10 @@ pub struct ConflictSide {
     /// When the commit that made the remote's version was made, as Unix seconds; none on this
     /// device's side, whose change is not pushed yet.
     pub at: Option<u64>,
+    /// The version itself: the mode and object id of the skill's directory and record, which
+    /// differ for any other version, so a choice made for one is not kept for the next.
+    #[serde(default)]
+    pub version: String,
 }
 
 /// One choice a merge made for a skill changed on both sides, as History lists it.

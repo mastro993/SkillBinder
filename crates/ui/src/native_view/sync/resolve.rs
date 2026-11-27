@@ -16,15 +16,29 @@ use std::collections::BTreeMap;
 /// for.
 #[derive(Default)]
 pub(in crate::native_view) struct Choices {
-    conflicts: Vec<String>,
+    /// Each conflict's slug and both sides' versions, as the choices were made for them.
+    conflicts: Vec<(String, String, String)>,
     chosen: BTreeMap<String, Side>,
 }
 
 impl Choices {
-    /// Forgets every choice once the skills changed on both sides are others.
+    /// Forgets every choice once the skills changed on both sides are others, or either side of
+    /// one holds another version, so a choice never applies to a version the user did not see.
     pub(in crate::native_view) fn follow(&mut self, conflicts: &[Conflict]) {
-        if !self.conflicts.iter().eq(conflicts.iter().map(|c| &c.slug)) {
-            self.conflicts = conflicts.iter().map(|c| c.slug.clone()).collect();
+        let seen = |c: &Conflict| {
+            (
+                c.slug.clone(),
+                c.local.version.clone(),
+                c.remote.version.clone(),
+            )
+        };
+        if !self
+            .conflicts
+            .iter()
+            .cloned()
+            .eq(conflicts.iter().map(seen))
+        {
+            self.conflicts = conflicts.iter().map(seen).collect();
             self.chosen.clear();
         }
     }
@@ -172,3 +186,6 @@ impl NativeView {
             )
     }
 }
+
+#[cfg(test)]
+mod tests;
