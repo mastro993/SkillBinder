@@ -17,7 +17,7 @@ use skillbinder_proto::command_line::{
 };
 use skillbinder_proto::{
     AppError, AppResult, AppSnapshot, ErrorCategory, ManagedCopy, OrganizationChange, PresetId,
-    PresetSwitch, RepositoryId, Workspace, owner_repo,
+    PresetSwitch, RepositoryId, SyncAction, Workspace, owner_repo,
 };
 use std::future::Future;
 use std::path::PathBuf;
@@ -212,6 +212,10 @@ async fn apply(
         Plan::Reinstall(skill) => Ok(updates::reinstall(skill, client, cx).await?),
         Plan::Sync(action) => Ok(sync::synchronize(action, client, cx).await?),
         Plan::Connect(remote) => Ok(sync::connect(remote, client, cx).await?),
+        Plan::Restore { skill, commit } => Ok(sync::restore(skill, commit, client, cx).await?),
+        Plan::Discard(skill) => Ok(sync::discard(skill, client, cx).await?),
+        Plan::Resolve(chosen) => Ok(sync::resolve_sync(chosen, client, cx).await?),
+        Plan::RenameDevice(name) => Ok(sync::rename_device(name, client, cx).await?),
     }
 }
 
@@ -452,6 +456,7 @@ fn title(plan: &Plan) -> String {
         Plan::InstallAll(repository) => format!("Installing {}", owner_repo(&repository.url)),
         Plan::Update { .. } | Plan::UpdateAll => "Updating skills".to_owned(),
         Plan::Sync(action) => sync::title(*action).to_owned(),
+        Plan::Resolve(_) => sync::title(SyncAction::Sync).to_owned(),
         _ => "Writing copies".to_owned(),
     }
 }

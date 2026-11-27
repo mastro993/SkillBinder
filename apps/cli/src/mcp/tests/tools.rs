@@ -6,12 +6,13 @@ use super::{outcome, skill};
 use crate::connect::{self, Conversation};
 use crate::{grammar, render};
 use serde_json::{Value, json};
-use skillbinder_proto::ValidationStatus;
 use skillbinder_proto::command_line::{
-    AgentRow, Change, Changed, Consent, Find, FoundOutput, FoundRow, FoundVersion, Output,
-    Progress, Query, Question, RepositoryRow, Request, SearchOutput, SearchRow, SkillsShAnswer,
-    Unchecked, UpdatesOutput, WorkspaceName, WorkspaceRow,
+    AgentRow, Change, Changed, ChoiceRow, ConflictRow, ConflictVersion, Consent, Find, FoundOutput,
+    FoundRow, FoundVersion, HistoryOutput, HistoryRow, Output, Progress, Query, Question,
+    RepositoryRow, Request, SearchOutput, SearchRow, SkillsShAnswer, SyncSkillRow,
+    SyncStatusOutput, Unchecked, UpdatesOutput, WorkspaceName, WorkspaceRow,
 };
+use skillbinder_proto::{ChangeKind, Side, SyncState, ValidationStatus};
 
 /// The command's side, without a terminal: no progress, and no question answered.
 struct Script;
@@ -44,6 +45,21 @@ fn fixture(request: &Request) -> Output {
             directory: "~/.cursor/skills".into(),
             on: false,
         }]),
+        Request::Read {
+            query: Query::SyncStatus,
+        } => Output::SyncStatus(Box::new(SyncStatusOutput {
+            state: SyncState::NeedsResolve,
+            remote: Some("git@github.com:me/skills.git".into()),
+            device: "MacBook".into(),
+            local: vec![pdf(Some("Updated from its source"))],
+            incoming: vec![pdf(None)],
+            devices: vec!["Mac Studio".into()],
+            conflicts: vec![ConflictRow {
+                slug: "pdf".into(),
+                mine: version(None),
+                theirs: version(Some("Mac Studio")),
+            }],
+        })),
         Request::Read { .. } => Output::Repositories(vec![RepositoryRow {
             name: "acme/skills".into(),
             url: "https://github.com/acme/skills".into(),
@@ -81,6 +97,24 @@ fn fixture(request: &Request) -> Output {
             }],
             skills_sh: SkillsShAnswer::Answered,
         }),
+        Request::Find {
+            find: Find::History { .. },
+        } => Output::History(HistoryOutput {
+            changes: vec![HistoryRow {
+                commit: "3f2a9c1b4d5e6f708192a3b4c5d6e7f809182736".into(),
+                at: 1_763_000_000,
+                when: "Today, 09:15".into(),
+                device: Some("Mac Studio".into()),
+                skills: vec![pdf(Some("Imported from Claude Code"))],
+                choices: vec![ChoiceRow {
+                    slug: "sql".into(),
+                    side: Side::Remote,
+                    kept: "Kept the remote's sql".into(),
+                    unpicked: Some("aa11bb22".into()),
+                }],
+            }],
+            next: Some("3f2a9c1b".into()),
+        }),
         Request::Find { find: Find::Check } => Output::Updates(UpdatesOutput {
             skills: vec![skill("pdf")],
             unchecked: vec![Unchecked {
@@ -93,6 +127,24 @@ fn fixture(request: &Request) -> Output {
             installed: vec!["pdf".into()],
             ..Changed::default()
         }),
+    }
+}
+
+/// pdf, changed, and why.
+fn pdf(why: Option<&str>) -> SyncSkillRow {
+    SyncSkillRow {
+        slug: "pdf".into(),
+        kind: ChangeKind::Changed,
+        why: why.map(str::to_owned),
+    }
+}
+
+/// A version of pdf changed on both sides, from `device`.
+fn version(device: Option<&str>) -> ConflictVersion {
+    ConflictVersion {
+        kind: ChangeKind::Changed,
+        why: Some("Updated from its source".into()),
+        device: device.map(str::to_owned),
     }
 }
 
@@ -253,6 +305,48 @@ fn cases(root: &str) -> Vec<Case> {
             None,
         ),
         case(
+            "sync_library",
+            json!({ "action": "status" }),
+            "sync status",
+            None,
+        ),
+        case(
+            "sync_library",
+            json!({ "action": "history" }),
+            "sync history",
+            None,
+        ),
+        case(
+            "sync_library",
+            json!({ "action": "history", "limit": 10, "before": "3f2a9c1b" }),
+            "sync history --limit 10 --before 3f2a9c1b",
+            None,
+        ),
+        case(
+            "sync_library",
+            json!({ "action": "restore", "skill_slug": "pdf", "commit": "3f2a9c1b" }),
+            "sync restore pdf --to 3f2a9c1b",
+            None,
+        ),
+        case(
+            "sync_library",
+            json!({ "action": "discard", "skill_slug": "pdf" }),
+            "sync discard pdf",
+            None,
+        ),
+        case(
+            "sync_library",
+            json!({ "action": "resolve", "choices": { "pdf": "mine", "sql": "theirs" } }),
+            "sync resolve pdf=mine sql=theirs",
+            None,
+        ),
+        case(
+            "sync_library",
+            json!({ "action": "rename_device", "name": "Studio" }),
+            "device rename Studio",
+            None,
+        ),
+        case(
             "manage_repositories",
             json!({ "action": "add", "repository": "https://github.com/acme/skills" }),
             "repo add https://github.com/acme/skills",
@@ -354,5 +448,39 @@ async fn a_relative_workspace_path_is_refused_and_any_other_value_is_a_name() ->
         };
         assert_eq!(heard.requests().last(), Some(&disable));
     }
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_sync_action_missing_what_it_names_is_refused_before_the_app() -> anyhow::Result<()> {
+    let root = tempfile::tempdir()?;
+    let heard = app(root.path(), |request| vec![outcome(Ok(fixture(request)))])?;
+    let mut client = Client::start(root.path());
+    client.initialize(json!({})).await?;
+    let refusals = [
+        (
+            json!({ "action": "restore", "skill_slug": "pdf" }),
+            "This action needs commit.",
+        ),
+        (
+            json!({ "action": "discard" }),
+            "This action needs skill_slug.",
+        ),
+        (json!({ "action": "resolve" }), "This action needs choices."),
+        (
+            json!({ "action": "rename_device" }),
+            "This action needs name.",
+        ),
+    ];
+    for (id, (arguments, message)) in (1..).zip(refusals) {
+        let refused = client.call(id, "sync_library", arguments.clone()).await?;
+        let error = &refused["structuredContent"]["error"];
+        assert_eq!(
+            (&error["code"], &error["message"]),
+            (&json!("usage"), &json!(message)),
+            "{arguments}"
+        );
+    }
+    assert!(heard.requests().is_empty(), "nothing reached the app");
     Ok(())
 }

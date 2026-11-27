@@ -1,10 +1,13 @@
 //! What waits to sync on each side (Design 4): each skill's kind of change and why it changed.
 
 use super::Reason;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// How a skill changed, by whether its directory is there before and after.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum ChangeKind {
     /// Its directory is new.

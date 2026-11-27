@@ -1,9 +1,8 @@
-//! Skill updates and Sync: Library's Updates filter, Check now, Update, Update all, and
-//! Reinstall, then Sync, Push, Pull, and the sync remote.
+//! Skill updates: Library's Updates filter, Check now, Update, Update all, and Reinstall.
 
-use super::{flag, name, unknown, value, values};
+use super::{flag, name, values};
 use clap::{Arg, ArgGroup, ArgMatches, Command};
-use skillbinder_proto::command_line::{Change, CommandError, SyncKind};
+use skillbinder_proto::command_line::Change;
 
 pub(super) fn updates() -> Command {
     Command::new("updates")
@@ -43,38 +42,6 @@ pub(super) fn reinstall() -> Command {
         .after_help("Example: skillbinder reinstall pdf")
 }
 
-pub(super) fn sync() -> [Command; 3] {
-    [
-        Command::new("sync")
-            .about("Pull the remote's changes, then push the library's")
-            .after_help("Example: skillbinder sync"),
-        Command::new("push").about("Commit the library's changes and push them to the remote"),
-        Command::new("pull").about("Bring in the remote's changes"),
-    ]
-}
-
-pub(super) fn remote() -> Command {
-    Command::new("remote")
-        .about("Set or remove the Git remote the library syncs with")
-        .subcommand_required(true)
-        .subcommand(
-            Command::new("set")
-                .about("Connect the library to a Git remote, replacing the one set")
-                .arg(name("url", "The remote's Git URL"))
-                .arg(
-                    Arg::new("branch")
-                        .long("branch")
-                        .value_name("B")
-                        .default_value("main")
-                        .help("The remote's branch"),
-                )
-                .after_help("Example: skillbinder remote set git@github.com:me/skills.git"),
-        )
-        .subcommand(
-            Command::new("remove").about("Disconnect the remote; the library stays as it is"),
-        )
-}
-
 /// `update`'s skills, or Update all.
 pub(super) fn update_change(args: &ArgMatches) -> Change {
     match values(args, "slugs").as_slice() {
@@ -82,26 +49,5 @@ pub(super) fn update_change(args: &ArgMatches) -> Change {
         skills => Change::Update {
             skills: skills.to_vec(),
         },
-    }
-}
-
-/// `sync`, `push`, or `pull`.
-pub(super) fn sync_change(command: &str) -> Change {
-    let action = match command {
-        "push" => SyncKind::Push,
-        "pull" => SyncKind::Pull,
-        _ => SyncKind::Sync,
-    };
-    Change::Synchronize { action }
-}
-
-pub(super) fn remote_change(matches: &ArgMatches) -> Result<Change, CommandError> {
-    match matches.subcommand() {
-        Some(("set", args)) => Ok(Change::SetRemote {
-            url: value(args, "url"),
-            branch: value(args, "branch"),
-        }),
-        Some(("remove", _)) => Ok(Change::RemoveRemote),
-        _ => Err(unknown("remote")),
     }
 }

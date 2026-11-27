@@ -2,10 +2,13 @@
 //! needs for each before it merges.
 
 use super::{ChangeKind, Reason};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Whose version of a skill changed on both sides a merge keeps.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum Side {
     /// This device's version.

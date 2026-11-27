@@ -1,7 +1,10 @@
 //! What the app sends back for a request: progress and questions while it runs, then one outcome
 //! holding the command's typed output.
 
-use super::{CommandError, FoundOutput, RepositoryRow, SearchOutput, UpdatesOutput};
+use super::{
+    CommandError, FoundOutput, HistoryOutput, RepositoryRow, SearchOutput, SyncStatusOutput,
+    UpdatesOutput,
+};
 use crate::{AppError, SkillSource, SyncState};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -88,6 +91,10 @@ pub enum Output {
     Repositories(Vec<RepositoryRow>),
     /// `updates`.
     Updates(UpdatesOutput),
+    /// `sync status`.
+    SyncStatus(Box<SyncStatusOutput>),
+    /// `sync history`.
+    History(HistoryOutput),
     /// Every changing command.
     Changed(Changed),
 }

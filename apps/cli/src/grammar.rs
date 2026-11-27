@@ -87,8 +87,9 @@ pub(crate) fn grammar() -> Command {
         .subcommand(updates::updates())
         .subcommand(updates::update())
         .subcommand(updates::reinstall())
-        .subcommands(updates::sync())
-        .subcommand(updates::remote())
+        .subcommands(sync::sync())
+        .subcommand(sync::remote())
+        .subcommand(sync::device())
         .subcommand(
             Command::new("mcp")
                 .about("Serve SkillBinder's tools to an agent over MCP, on stdin and stdout")
@@ -301,8 +302,9 @@ pub(crate) fn request(matches: &ArgMatches, interactive: bool) -> Result<Request
         "reinstall" => change(Change::Reinstall {
             skill: value(args, "slug"),
         }),
-        "sync" | "push" | "pull" => change(updates::sync_change(command)),
-        "remote" => updates::remote_change(args).and_then(change),
+        "sync" | "push" | "pull" => sync::sync_request(command, args, consent),
+        "remote" => sync::remote_change(args).and_then(change),
+        "device" => sync::device_change(args).and_then(change),
         "workspace" => places::workspace_change(args).and_then(change),
         "agent" => places::agent_change(args).and_then(change),
         "enable" => change(Change::Enable {
@@ -419,6 +421,7 @@ fn unknown(command: &str) -> CommandError {
 mod explore;
 mod places;
 pub(crate) use places::folder as workspace_folder;
+mod sync;
 #[cfg(test)]
 mod tests;
 mod updates;

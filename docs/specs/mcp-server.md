@@ -46,7 +46,7 @@ Inputs name skills by `skill_slug`, presets, folders, and workspaces by name (a 
 | `import_skills` | destructive | Import found `skills` (`slug` with optional `version`) or `all`; `replace` | `import` |
 | `ignore_skills` | idempotent | Ignore found `skills` (slugs), or with `stop` stop ignoring them ([ignore-found-skills](ignore-found-skills.md) behavior 14) | `ignore`, `unignore` |
 | `update_skills` | destructive, open-world | `action`: `check`, `update` (`skill_slugs` or `all`), `reinstall` | `updates`, `update`, `reinstall` |
-| `sync_library` | destructive, open-world | `action`: `sync`, `push`, `pull`, `set_remote`, `remove_remote` | `sync`, `push`, `pull`, `remote` |
+| `sync_library` | destructive, open-world | `action`: `sync`, `push`, `pull`, `set_remote`, `remove_remote`, `status`, `history`, `restore`, `discard`, `resolve`, `rename_device` ([sync-history](sync-history.md) Design 11) | `sync`, `push`, `pull`, `remote`, `sync status`, `sync history`, `sync restore`, `sync discard`, `sync resolve`, `device rename` |
 | `manage_repositories` | destructive, open-world | `action`: `add`, `remove`, `install_all` | `repo …` |
 | `resolve_copies` | destructive | `action`: `replace`, `keep`, or `retry`; `copies` as `skill_slug` and `directory` | `copies …` |
 

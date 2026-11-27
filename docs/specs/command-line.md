@@ -16,7 +16,7 @@ From any terminal, after installing the command once from Settings, `skillbinder
 
 In:
 - the `skillbinder` console program on macOS, Windows, and Linux, talking to the running app and starting it in the background when needed;
-- commands for reading the library, presets, library folders, the active preset's skills, workspaces, your agents, managed copies waiting for an answer, scan and import, Explore's search and install, your repositories, skill updates, Reinstall, Sync, Push, Pull, and the sync remote;
+- commands for reading the library, presets, library folders, the active preset's skills, workspaces, your agents, managed copies waiting for an answer, scan and import, Explore's search and install, your repositories, skill updates, Reinstall, Sync, Push, Pull, the sync remote, and the Sync page's status, History, Restore, Discard, resolving, and device name;
 - Settings › General › Command line tool: status, Install, Repair, Uninstall;
 - the Homebrew casks linking the command.
 
@@ -65,6 +65,7 @@ Names follow the glossary. A skill is named by its slug, a preset or library fol
 | `repos`, `repo add <url>`, `repo remove <url>`, `repo install-all <url>` | Your repositories and Install all |
 | `updates [--check]`, `update (<slug>… \| --all)`, `reinstall <slug>` | Library's Updates filter, Check now, Update, Update all, Reinstall |
 | `sync`, `push`, `pull`, `remote set <url> [--branch B]`, `remote remove` | Sync and its remote setup |
+| `sync status`, `sync history [--limit N] [--before C]`, `sync restore <slug> --to <commit>`, `sync discard <slug>`, `sync resolve <slug>=mine\|theirs…`, `device rename <name>` | The Sync page's Not synced yet, History, Restore, Discard, Resolve…, and Rename this device ([sync-history](sync-history.md) Design 11). `sync` while skills changed on both sides exits 2: "<n> skills changed on both sides. Resolve them with `skillbinder sync resolve`." |
 
 `skillbinder --version` prints the command's version; `skillbinder --help` and `<command> --help` describe each command with an example.
 

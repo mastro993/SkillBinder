@@ -196,12 +196,12 @@ pub(super) fn kind(kind: ChangeKind) -> (&'static str, &'static str, Tint) {
 }
 
 /// Why a skill changed (Y8); unknown for a commit made before device names.
-pub(super) fn why(skill: &ChangedSkill) -> Option<String> {
+pub(crate) fn why(skill: &ChangedSkill) -> Option<String> {
     why_changed(skill.kind, skill.reason.as_ref())
 }
 
 /// Why a skill changed `kind`, from `reason`.
-fn why_changed(kind: ChangeKind, reason: Option<&Reason>) -> Option<String> {
+pub(crate) fn why_changed(kind: ChangeKind, reason: Option<&Reason>) -> Option<String> {
     Some(match reason? {
         Reason::Imported { from: Some(from) } => format!("Imported from {from}"),
         Reason::Imported { from: None } => "Imported".to_owned(),
@@ -355,7 +355,7 @@ pub(super) fn chosen(side: Side) -> &'static str {
 }
 
 /// A merge's choice in History (Y6): "Kept <device>'s <slug>".
-pub(super) fn kept(device: Option<&str>, slug: &str) -> String {
+pub(crate) fn kept(device: Option<&str>, slug: &str) -> String {
     match device {
         Some(device) => format!("Kept {device}'s {slug}"),
         None => format!("Kept the remote's {slug}"),
@@ -363,7 +363,7 @@ pub(super) fn kept(device: Option<&str>, slug: &str) -> String {
 }
 
 /// "1 skill" or "<n> skills".
-pub(super) fn skills(count: usize) -> String {
+pub(crate) fn skills(count: usize) -> String {
     match count {
         1 => "1 skill".to_owned(),
         count => format!("{count} skills"),
