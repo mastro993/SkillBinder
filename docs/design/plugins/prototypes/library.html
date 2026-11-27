@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Plugins in Library</title>
-<!-- Plugins in Library (2026-11-27, L1-L7): plugin skills listed in Library beside library skills, marked as their
+<!-- Plugins in Library (2026-11-27, L0-L5): plugin skills listed in Library beside library skills, marked as their
      plugin's; plugins managed from Library, with no Plugins sidebar row; agent pages list the plugin skills they load.
      Build: python3 -I ../../scoped-pages/source/kit/inline.py library.html ../prototypes/library.html -->
 <style>/* ../../scoped-pages/source/kit/kit.css */
@@ -1430,7 +1430,7 @@ Talk like caveman. Keep every fact, drop every filler word.
   P.library.find((s) => s.slug === 'storybook').agents = [];
   const libItems = () => P.library.map((s) => ({ kind: 'lib', slug: s.slug, desc: s.desc, agents: s.agents,
     folder: FOLDER_OF[s.slug] || null, active: s.agents.length > 0 }));
-  // L6: a plugin skill is Active when its plugin is installed and on in at least one of your agents.
+  // L3: a plugin skill is Active when its plugin is installed and on in at least one of your agents.
   const plugActive = (p) => P.holders(p).some((a) => !P.inst(p, a.id).off);
   const plugItems = (p) => p.skills.map((s) => ({ kind: 'plugin', slug: s.slug, desc: s.desc, plugin: p, active: plugActive(p) }));
   const inLibrary = (slug) => P.library.some((s) => s.slug === slug);
@@ -1460,7 +1460,7 @@ Talk like caveman. Keep every fact, drop every filler word.
     page.className = 'sb-page';
     page.scrollTop = 0;
     ({ library: drawLibrary, plugin: drawPlugin, skill: drawSkill, agent: drawAgent })[S.route]();
-    // L6: Library's count includes plugin skills.
+    // A17: Library's count includes plugin skills.
     const n = side.querySelector('[data-nav="library"] .sb-nav-count');
     if (n) n.textContent = libItems().length + P.list().reduce((t, p) => t + p.skills.length, 0);
   }
@@ -1480,7 +1480,7 @@ Talk like caveman. Keep every fact, drop every filler word.
           avatarStack(agentsOf(s.agents), { size: 18 }), ic('arrow-down', 12))
         : h('span', { class: 'sb-row-hover lb-plus', 'data-tip': 'Turn on', 'data-tip-pos': 'end' }, ic('plus', 13))));
   }
-  // L4: read-only trailing area, the agents that have the plugin; it opens the plugin.
+  // L1: read-only trailing area, the agents that have the plugin; it opens the plugin.
   function plugRow(s, { mark = true } = {}) {
     const p = s.plugin;
     const open = () => openSkill(p, s.slug);
@@ -1592,11 +1592,11 @@ Talk like caveman. Keep every fact, drop every filler word.
     frontMatter(md), h('div', { class: 'pl-mdbox' }, markdown(md))].filter(Boolean));
   }
 
-  // ---- L7: Claude Code's page lists the plugin skills it loads ----------------------------------------
+  // ---- L4: Claude Code's page lists the plugin skills it loads ----------------------------------------
   function drawAgent() {
     hdr.replaceChildren(h('div', { class: 'sb-title' }, 'Claude Code'));
     const lib = libItems().filter((s) => s.agents.includes('claude'));
-    const plug = [].concat(...P.list().filter((p) => P.inst(p, 'claude')).map(plugItems));
+    const plug = [].concat(...P.list().filter((p) => { const i = P.inst(p, 'claude'); return i && !i.off; }).map(plugItems));
     const body = S.variant === 'b' ? [card(sorted(lib)), ...grouped(plug)] : [card(sorted(lib.concat(plug)))];
     page.replaceChildren(h('div', { class: 'sb-toolbar' }, searchInput({ onInput: soon })), ...body);
   }

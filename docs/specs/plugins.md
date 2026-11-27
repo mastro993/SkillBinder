@@ -98,6 +98,7 @@ Decisions of 2026-11-27 ([decisions.md](../design/plugins/decisions.md#plugins-i
 
 1. An agent's page lists, in its one list (ADR 0036), the skills of the plugins installed and on in that agent, as Library's rows: chip, read-only agents, opening the plugin and the plugin skill page. An agent with a plugin Off lists none of its skills (L4).
 2. Search covers them; workspace pages and Universal's page are unchanged (P4).
+3. The agent's sidebar count includes the plugin skills it lists, as Library's does (A18); found and ignored skills stay uncounted.
 
 ### Command line and MCP server
 
@@ -132,6 +133,7 @@ Prototypes in [docs/design/plugins](../design/plugins/README.md), picked 2026-11
 - **A15 (L2):** the plugin skill page keeps "Also in Library"; only the row's mark was dropped. *If wrong:* drop it too, and the page's only way to the library skill is Library.
 - **A16 (P3):** plugin skills never show under a folder tab and never count as Updates. *If wrong:* folder tabs would need plugin membership, which ADR 0041 rules out.
 - **A17 (L3):** Library's sidebar count includes plugin skills, as All does. *If wrong:* the sidebar would count library skills while All counts more.
+- **A18 (L4):** an agent's sidebar count includes the plugin skills that agent loads, like its library skills, since both are on there. *If wrong:* the agent's count would leave out skills its page lists as on.
 - **A12 (ADR 0023, 0025):** the command line tool and MCP server cover plugins; Install and Uninstall confirm at a terminal or through elicitation, and otherwise need `--yes` or `confirm: true`, one consent that includes any marketplace step, as P11 absorbs P6. *If wrong:* a separate `--add-marketplace` would make an agent ask the user twice.
 - **A13 (P1):** no plugin command runs without the user's click, the command, or an MCP call: SkillBinder never installs, updates, or uninstalls on its own, not even to resolve an overlap.
 

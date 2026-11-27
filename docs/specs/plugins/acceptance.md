@@ -26,7 +26,7 @@ Companion to [the Plugins spec](../plugins.md). Each check names the slice that 
 20. **MCP (S9).** With a client without elicitation, `install_plugin` and `uninstall_plugin` return the question's text and install or uninstall nothing until called with `confirm: true`; with elicitation, the client is asked and a decline runs nothing.
 21. **No writes (every slice).** Engine tests assert that reading and every command leave the agents' plugin folders and settings byte-identical apart from what the fake program wrote.
 22. **Checks pass (every slice).** fmt, Clippy, `cccc .`, workspace tests, `cargo run -p xtask -- verify`, and the locked release build.
-23. **Agent pages (S2).** Claude Code's page lists `fstack`'s and `caveman`'s skills read-only with their chips beside its library skills and found skills, and not `frontend-design`'s (Off); GitHub Copilot's page lists `fstack`'s skills once it is installed there (S4); a workspace page lists none.
+23. **Agent pages (S2).** Claude Code's page lists `fstack`'s and `caveman`'s skills read-only with their chips beside its library skills and found skills, and not `frontend-design`'s (Off), and Claude Code's sidebar count includes those plugin skills (A18); GitHub Copilot's page lists `fstack`'s skills once it is installed there (S4); a workspace page lists none.
 
 ## Slices
 

@@ -97,7 +97,7 @@ flowchart LR
 
 ## Assumptions
 
-- **A1:** found and ignored rows are not links, since a found skill has no page. *If wrong:* a read-only preview like a plugin skill's page (ADR 0035).
+- **A1:** found and ignored rows are not links, since a found skill has no page. *If wrong:* a read-only preview like a plugin skill's page (ADR 0041).
 - **A2:** Import… sits on each row and at the end of the search row. *If wrong:* only at the end of the search row.
 - **A3:** the list is sorted by slug, found skills mixed in. *If wrong:* the skills on here first (variant B).
 - **A4:** no new command or MCP server output. *If wrong:* `scan --workspace <ws>` and `--agent <a>` filters, and the same for `find_skills`.
