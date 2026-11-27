@@ -193,7 +193,7 @@ impl NativeView {
         }
         Some(
             section
-                .children(more.map(|more| div().child(more)))
+                .children(more.map(|more| h_flex().child(more)))
                 .into_any_element(),
         )
     }
@@ -306,9 +306,10 @@ impl NativeView {
     }
 }
 
-/// A skill chip: its kind mark and its slug.
+/// A skill chip: its kind mark and its slug, outlined, since a muted fill would vanish into the
+/// row's hover.
 fn chip(change: &str, skill: &ChangedSkill, cx: &App) -> impl IntoElement {
-    Chip::new(ChipVariant::Neutral).child(
+    Chip::new(ChipVariant::Outline).child(
         h_flex()
             .gap(px(space::XS))
             .child(pending::mark(&format!("{change}-chip"), skill, cx))
