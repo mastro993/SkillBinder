@@ -4,8 +4,8 @@
 use super::{section, wrap};
 use crate::tokens::space;
 use crate::{
-    AvatarStack, Button, CardList, Checkbox, DialogFooter, DialogHeader, DiffView, Level, ListRow,
-    Logo, PopoverPanel, SkillCard, Surface, Text, diff_state, icon, icon_color, menu,
+    AvatarStack, Button, CardList, Checkbox, DialogFooter, DialogHeader, DiffView, FileNote, Level,
+    ListRow, Logo, PopoverPanel, SkillCard, Surface, Text, diff_state, icon, icon_color, menu,
 };
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::{
@@ -24,8 +24,12 @@ const LOGOS: [Logo; 6] = [
     Logo::Glyph("icons/folder.svg"),
 ];
 
-/// A changed file, a removed one, and an added executable one, for `DiffView`.
-const PATCH: &str = "diff --git a/SKILL.md b/SKILL.md
+/// An added binary file, a changed file, a removed one, and an added executable one, for
+/// `DiffView`.
+const PATCH: &str = "diff --git a/assets/form.pdf b/assets/form.pdf
+new file mode 100644
+Binary files /dev/null and b/assets/form.pdf differ
+diff --git a/SKILL.md b/SKILL.md
 --- a/SKILL.md
 +++ b/SKILL.md
 @@ -1,9 +1,10 @@
@@ -67,11 +71,16 @@ pub(super) fn organisms(window: &mut Window, cx: &mut App) -> Vec<AnyElement> {
 }
 
 fn diff(window: &mut Window, cx: &mut App) -> Div {
+    let notes = [FileNote {
+        path: "assets/form.pdf".into(),
+        text: "Binary file changed".into(),
+    }];
     let state = window.use_keyed_state("gallery-diff", cx, |_, cx| {
-        diff_state(PATCH, cx).unwrap_or_else(|error| panic!("gallery patch: {error}"))
+        diff_state(PATCH, &notes, cx).unwrap_or_else(|error| panic!("gallery patch: {error}"))
     });
     wrap().child(
         DiffView::new(state.read(cx))
+            .notes(notes)
             .w(px(COLUMN * 2.))
             .h(px(COLUMN)),
     )

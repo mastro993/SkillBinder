@@ -2,31 +2,51 @@
 //! Each file has a sticky header with Kit's fold chevron, a status mark (A added, M changed, D
 //! removed), its path in `mono-sm`, and "+A −D" in the success and danger tones at its end. Lines
 //! show both line numbers, `+` and `−` signs, and Kit's change backgrounds; unchanged stretches
-//! past three lines of context fold, and unfold on click. It scrolls in its own area, so give it
-//! a bounded height.
+//! past three lines of context fold, and unfold on click. A file shown without lines, such as a
+//! binary one, carries a note in `body-sm` muted under its header instead. It scrolls in its own
+//! area, so give it a bounded height.
 
 use crate::tokens::{radius, space, text};
 use crate::{Status, Text, TextTone};
 use gpui_kit::component::diff::{
-    Diff, DiffFile, DiffFileStatus, DiffHunkSeparator, DiffMode, DiffParseError, DiffState,
+    Diff, DiffAnnotation, DiffFile, DiffFileStatus, DiffHunkSeparator, DiffMode, DiffParseError,
+    DiffState,
 };
 use gpui_kit::component::{ActiveTheme, h_flex};
 use gpui_kit::{
-    App, AppContext, Div, Entity, IntoElement, ParentElement, RenderOnce, StyleRefinement, Styled,
-    Window, div, px,
+    App, AppContext, Div, Entity, IntoElement, ParentElement, RenderOnce, SharedString,
+    StyleRefinement, Styled, Window, div, px,
 };
+use std::rc::Rc;
 
 /// Unchanged lines shown on each side of a change before the rest fold.
 const CONTEXT_LINES: usize = 3;
 
+/// One line under a file's header in place of its lines, such as why they are not shown.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FileNote {
+    /// The file's path, as the patch names it.
+    pub path: SharedString,
+    /// The line.
+    pub text: SharedString,
+}
+
 /// The state of the files in `patch`, a unified or Git diff, for a [`DiffView`]: unified, every
-/// file unfolded, unchanged stretches folded past three lines of context.
-pub fn diff_state(patch: &str, cx: &mut App) -> Result<Entity<DiffState>, DiffParseError> {
+/// file unfolded but the `noted` ones, unchanged stretches folded past three lines of context.
+pub fn diff_state(
+    patch: &str,
+    noted: &[FileNote],
+    cx: &mut App,
+) -> Result<Entity<DiffState>, DiffParseError> {
     let files = DiffFile::parse(patch)?;
     Ok(cx.new(|cx| {
-        DiffState::new(files, cx)
+        let mut state = DiffState::new(files, cx)
             .with_mode(DiffMode::Unified)
-            .with_context_lines(Some(CONTEXT_LINES))
+            .with_context_lines(Some(CONTEXT_LINES));
+        // Kit draws its own summary under an unfolded file without lines; folded, only the note
+        // shows.
+        state.set_files_collapsed(noted.iter().map(|note| note.path.clone()), true, cx);
+        state
     }))
 }
 
@@ -35,6 +55,7 @@ pub fn diff_state(patch: &str, cx: &mut App) -> Result<Entity<DiffState>, DiffPa
 pub struct DiffView {
     base: Div,
     state: Entity<DiffState>,
+    notes: Rc<[FileNote]>,
 }
 
 impl DiffView {
@@ -43,6 +64,15 @@ impl DiffView {
         Self {
             base: div(),
             state: state.clone(),
+            notes: Rc::new([]),
+        }
+    }
+
+    /// Shows each of `notes` under its file's header, the ones its state was made with.
+    pub fn notes(self, notes: impl Into<Rc<[FileNote]>>) -> Self {
+        Self {
+            notes: notes.into(),
+            ..self
         }
     }
 }
@@ -61,7 +91,26 @@ impl RenderOnce for DiffView {
             .change_background(true)
             // Each file is one hunk holding its whole text, so no hunk needs marking.
             .hunk_separator(DiffHunkSeparator::LineInfo)
-            .render_header(|file, _, _| header(file));
+            .render_header(|file, _, _| header(file))
+            .annotations(
+                self.notes
+                    .iter()
+                    .enumerate()
+                    .map(|(ix, note)| DiffAnnotation::file(("diff-note", ix), note.path.clone())),
+            )
+            .render_annotation({
+                let notes = self.notes.clone();
+                move |annotation, _, _| {
+                    let text = notes
+                        .iter()
+                        .find(|note| &note.path == annotation.path())
+                        .map(|note| note.text.clone())
+                        .unwrap_or_default();
+                    Text::labeled(annotation.id().clone(), text)
+                        .level(text::BODY_SM)
+                        .muted()
+                }
+            });
         self.base
             .flex()
             .flex_col()

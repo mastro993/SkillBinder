@@ -60,7 +60,7 @@ pub use count::format_count;
 pub use dialog_footer::DialogFooter;
 pub use dialog_frame::{DIALOG_INSET, DialogFrame, DialogSize};
 pub use dialog_header::DialogHeader;
-pub use diff_view::{DiffView, diff_state};
+pub use diff_view::{DiffView, FileNote, diff_state};
 pub use empty_state::EmptyState;
 pub use focus_ring::{FOCUS_RING, focus_ring};
 #[cfg(feature = "native-test")]

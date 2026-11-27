@@ -1,8 +1,8 @@
 //! A diff view's files, their fold controls, and the folded unchanged lines, drawn in a GPUI
 //! test window.
 
-use super::{DiffView, diff_state};
-use crate::test_window::{Drawn, named};
+use super::{DiffView, FileNote, diff_state};
+use crate::test_window::{Drawn, labels, named};
 use gpui_kit::component::diff::DiffState;
 use gpui_kit::{Context, Entity, IntoElement, Render, Role, Styled, TestAppContext, Window};
 
@@ -23,18 +23,21 @@ fn patch() -> String {
     patch
 }
 
-struct Files(Entity<DiffState>);
+struct Files(Entity<DiffState>, Vec<FileNote>);
 
 impl Render for Files {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        DiffView::new(&self.0).size_full()
+        DiffView::new(&self.0).notes(self.1.clone()).size_full()
     }
 }
 
 #[gpui_kit::test]
 fn each_file_folds_and_long_unchanged_stretches_fold(cx: &mut TestAppContext) {
     let drawn = Drawn::open(cx, |_, cx| {
-        Files(diff_state(&patch(), cx).unwrap_or_else(|error| panic!("{error}")))
+        Files(
+            diff_state(&patch(), &[], cx).unwrap_or_else(|error| panic!("{error}")),
+            Vec::new(),
+        )
     });
     let buttons = named(&drawn.frame(cx), Role::Button);
     // Every file starts unfolded, with its own fold control.
@@ -45,4 +48,34 @@ fn each_file_folds_and_long_unchanged_stretches_fold(cx: &mut TestAppContext) {
     for name in ["Expand 16 unchanged lines", "Expand 7 unchanged lines"] {
         assert!(buttons.contains(&Some(name.into())), "{buttons:?}");
     }
+}
+
+#[gpui_kit::test]
+fn a_noted_file_shows_its_note_in_place_of_lines(cx: &mut TestAppContext) {
+    let patch = format!(
+        "{}diff --git a/form.pdf b/form.pdf\nnew file mode 100644\nBinary files /dev/null and b/form.pdf differ\n",
+        patch()
+    );
+    let notes = vec![FileNote {
+        path: "form.pdf".into(),
+        text: "Binary file changed".into(),
+    }];
+    let drawn = Drawn::open(cx, move |_, cx| {
+        Files(
+            diff_state(&patch, &notes, cx).unwrap_or_else(|error| panic!("{error}")),
+            notes.clone(),
+        )
+    });
+    let frame = drawn.frame(cx);
+    assert_eq!(labels(&frame, "Binary file changed"), 1);
+    // Folded, so Kit's own summary of a file without lines stays hidden.
+    let buttons = named(&frame, Role::Button);
+    assert!(
+        buttons.contains(&Some("Expand form.pdf".into())),
+        "{buttons:?}"
+    );
+    assert!(
+        buttons.contains(&Some("Collapse SKILL.md".into())),
+        "{buttons:?}"
+    );
 }
