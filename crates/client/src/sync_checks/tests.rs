@@ -60,7 +60,7 @@ async fn checks_the_remote_every_period_and_shows_a_failed_check_as_unreachable(
 }
 
 #[tokio::test]
-async fn a_check_waits_while_blocking_work_runs() -> TestResult {
+async fn a_check_waits_without_git_or_while_blocking_work_runs() -> TestResult {
     let directory = tempfile::tempdir()?;
     let engine = ready(directory.path()).await?;
     let mut idle = engine.snapshot().await?;
@@ -81,7 +81,9 @@ async fn a_check_waits_while_blocking_work_runs() -> TestResult {
         .insert("catalog/skill".to_owned(), InstallState::Installing);
     let mut changing = idle.clone();
     changing.activation = Some(ActivationProgress::default());
-    for busy in [syncing, updating, installing, changing] {
+    let mut without_git = idle.clone();
+    without_git.bootstrap.git_version = None;
+    for busy in [syncing, updating, installing, changing, without_git] {
         assert!(!due(&busy));
     }
     engine.shutdown().await?;

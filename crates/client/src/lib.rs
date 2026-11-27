@@ -250,7 +250,8 @@ impl Client {
             if let Err(error) = client.refresh_preserving_outcome(scanned).await {
                 client.background_error(error);
             }
-            if remote {
+            // The check needs Git, which the bootstrap above may only now have found.
+            if remote && client.snapshot().bootstrap.git_version.is_some() {
                 client.check_remote().await;
             }
         });

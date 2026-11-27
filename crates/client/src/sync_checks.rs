@@ -41,8 +41,8 @@ impl Client {
     }
 }
 
-/// Whether a periodic check runs now: a remote is set, and no blocking change, Update all,
-/// Sync, or install runs.
+/// Whether a periodic check runs now: Git is found, a remote is set, and no blocking change,
+/// Update all, Sync, or install runs.
 fn due(snapshot: &AppSnapshot) -> bool {
     let explore = &snapshot.explore;
     let installing = !explore.install_all.is_empty()
@@ -51,6 +51,7 @@ fn due(snapshot: &AppSnapshot) -> bool {
             .values()
             .any(|install| *install == InstallState::Installing);
     snapshot.library.is_some()
+        && snapshot.bootstrap.git_version.is_some()
         && snapshot.sync.remote.is_some()
         && snapshot.activation.is_none()
         && snapshot.updating.is_none()
