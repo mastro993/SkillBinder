@@ -85,6 +85,12 @@ pub enum Find {
     /// `updates --check`: checks every source now, as Check now does, then lists the skills
     /// with an update.
     Check,
+    /// `update <slug>… --diff`: what Update would change in each named skill, as its review
+    /// dialog shows it, changing nothing.
+    Diff {
+        /// The skills, by slug.
+        skills: Vec<String>,
+    },
     /// `sync history`: a page of History, as the Sync page reads it.
     History {
         /// The commit the page starts after; none for the newest changes.

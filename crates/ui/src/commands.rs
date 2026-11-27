@@ -187,6 +187,7 @@ fn dispatch(request: Request, peer: Peer, running: Connection, cx: &mut App) {
                     Find::Scan => import::scan(&client).await,
                     Find::Search { query } => explore::search(&client, &query).await,
                     Find::Check => updates::check(&client).await,
+                    Find::Diff { skills } => updates::diff(&client, &skills).await,
                     Find::History { before, limit } => sync::history(&client, before, limit).await,
                 };
                 peer.finish(found.map_err(Failure::from));

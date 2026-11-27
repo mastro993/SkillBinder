@@ -2,13 +2,15 @@
 //! what Update did with the reviewed version.
 
 use crate::{SkillId, SkillSource, UpdateOutcome};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// What updating a library skill from its source would change, from its current library content
 /// to the fetched content.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct UpdateReview {
-    /// The skill reviewed.
+    /// The skill reviewed, by slug.
+    #[serde(rename = "slug")]
     pub id: SkillId,
     /// The source fetched.
     pub source: SkillSource,
@@ -27,6 +29,17 @@ pub struct UpdateReview {
 }
 
 impl UpdateReview {
+    /// The warning that the update also replaces local edits, which show as removed lines, when
+    /// the skill drifted (R8).
+    pub fn drift_note(&self) -> Option<String> {
+        self.drifted.then(|| {
+            format!(
+                "{} was changed outside SkillBinder. Updating replaces those changes too; they show as removed lines.",
+                self.id
+            )
+        })
+    }
+
     /// The lines the update adds and removes across its files.
     pub fn totals(&self) -> (u64, u64) {
         self.files.iter().fold((0, 0), |(added, removed), file| {
@@ -35,8 +48,23 @@ impl UpdateReview {
     }
 }
 
+impl SkillSource {
+    /// The repository without its scheme, then the skill's folder, as an update's review names
+    /// them: `github.com/acme/skills · skills/pdf`.
+    pub fn place(&self) -> String {
+        let normalized = crate::normalized_url(&self.url);
+        let repository = normalized
+            .split_once("://")
+            .map_or(normalized.as_str(), |(_, rest)| rest);
+        match self.path.as_str() {
+            "" => repository.to_owned(),
+            path => format!("{repository} · {path}"),
+        }
+    }
+}
+
 /// One file an update changes, its path relative to the skill's folder with `/` separators.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct ReviewedFile {
     /// Where the file is in the skill's folder.
     pub path: String,
@@ -51,7 +79,8 @@ pub struct ReviewedFile {
 }
 
 /// How a review shows a changed file (R5).
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
 pub enum Shown {
     /// Its changed lines, in the patch.
     Lines,
@@ -69,8 +98,41 @@ pub enum Shown {
     PastCap,
 }
 
+impl Shown {
+    /// Why a file shows this way instead of its lines, if it does, as the review says under its
+    /// header.
+    pub fn note(self) -> Option<String> {
+        Some(match self {
+            Self::Lines => return None,
+            Self::Binary {
+                before: Some(before),
+                after: Some(after),
+            } => format!("Binary file changed · {} → {}", size(before), size(after)),
+            Self::Binary { .. } => "Binary file changed".to_owned(),
+            Self::TooLarge => "Too large to show (over 128 KiB)".to_owned(),
+            Self::PastCap => {
+                "Not shown: this update's changes are too large to show in full.".to_owned()
+            }
+        })
+    }
+}
+
+/// `bytes` rounded as Finder shows them: `512 B`, `18 KB`, `1.3 MB`.
+fn size(bytes: u64) -> String {
+    if bytes < 1_000 {
+        return format!("{bytes} B");
+    }
+    let kilobytes = (bytes + 500) / 1_000;
+    if kilobytes < 1_000 {
+        return format!("{kilobytes} KB");
+    }
+    let tenths = (bytes + 50_000) / 100_000;
+    format!("{}.{} MB", tenths / 10, tenths % 10)
+}
+
 /// How an update changes a file.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
 pub enum FileChange {
     /// Only the fetched content has it.
     Added,
@@ -124,3 +186,6 @@ pub enum Moved {
     /// The skill's library content changed, such as by a Pull.
     Library,
 }
+
+#[cfg(test)]
+mod tests;

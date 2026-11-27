@@ -298,6 +298,9 @@ pub(crate) fn request(matches: &ArgMatches, interactive: bool) -> Result<Request
         "repo" => explore::repo_change(args).and_then(change),
         "updates" if has(args, "check") => Ok(Request::Find { find: Find::Check }),
         "updates" => read(Query::Updates),
+        "update" if has(args, "diff") => Ok(Request::Find {
+            find: updates::diff_find(args),
+        }),
         "update" => change(updates::update_change(args)),
         "reinstall" => change(Change::Reinstall {
             skill: value(args, "slug"),

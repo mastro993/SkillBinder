@@ -63,7 +63,7 @@ Names follow the glossary. A skill is named by its slug, a preset or library fol
 | `search <query>` | Explore's search over the catalog, your repositories, and skills.sh |
 | `install <ref>…` | Explore's Install. `<ref>` is a slug found once in the catalog or your repositories, `<owner>/<repo>/<slug>`, or a skills.sh `<owner>/<repo>@<skill>` |
 | `repos`, `repo add <url>`, `repo remove <url>`, `repo install-all <url>` | Your repositories and Install all |
-| `updates [--check]`, `update (<slug>… \| --all)`, `reinstall <slug>` | Library's Updates filter, Check now, Update, Update all, Reinstall |
+| `updates [--check]`, `update (<slug>… [--diff] \| --all)`, `reinstall <slug>` | Library's Updates filter, Check now, Update and its review ([skill-update-review](skill-update-review.md) behavior 8), Update all, Reinstall |
 | `sync`, `push`, `pull`, `remote set <url> [--branch B]`, `remote remove` | Sync and its remote setup |
 | `sync status`, `sync history [--limit N] [--before C]`, `sync restore <slug> --to <commit>`, `sync discard <slug>`, `sync resolve <slug>=mine\|theirs…`, `device rename <name>` | The Sync page's Not synced yet, History, Restore, Discard, Resolve…, and Rename this device ([sync-history](sync-history.md) Design 11). `sync` while skills changed on both sides exits 2: "<n> skills changed on both sides. Resolve them with `skillbinder sync resolve`." |
 

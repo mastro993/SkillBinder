@@ -1,18 +1,21 @@
-//! Skill updates from a terminal: `updates [--check]`, `update`, `update --all`, and
-//! `reinstall`, as Library's Updates filter, Check now, Update, Update all, and Reinstall run
-//! them. All but listing what the last check found need Git (spec rule 5).
+//! Skill updates from a terminal: `updates [--check]`, `update [--diff]`, `update --all`, and
+//! `reinstall`, as Library's Updates filter, Check now, Update and its review, Update all, and
+//! Reinstall run them. All but listing what the last check found need Git (spec rule 5).
 
 use super::plan::Plan;
 use super::run::{busy, free, held, on_runtime};
 use super::{reads, resolve};
 use crate::gate::Gate;
-use crate::native_view::{GIT_NEEDED, available, has_update};
+use crate::native_view::{GIT_NEEDED, available, fetch_failed, has_update};
 use gpui_kit::AsyncApp;
 use skillbinder_client::Client;
 use skillbinder_proto::command_line::{
-    Changed, CommandError, ErrorCode, Failure, Output, SkillFilter, Unchecked, UpdatesOutput,
+    Changed, CommandError, ErrorCode, Failure, Output, ReviewsOutput, SkillFilter, Unchecked,
+    UpdatesOutput,
 };
-use skillbinder_proto::{AppSnapshot, Drift, LibrarySnapshot, SkillId, UpdateCheck, UpdateOutcome};
+use skillbinder_proto::{
+    AppError, AppSnapshot, Drift, LibrarySnapshot, SkillId, UpdateCheck, UpdateOutcome,
+};
 
 /// Fails with the app's own words while Git is missing or too old (spec rule 5).
 pub(super) fn needs_git(snapshot: &AppSnapshot) -> Result<(), CommandError> {
@@ -57,6 +60,37 @@ pub(super) async fn check(client: &Client) -> Result<Output, CommandError> {
     )?))
 }
 
+/// `update <slug>… --diff`: the changes Update would land in each named skill with an update,
+/// as its review dialog shows them, built one after another behind any running change; nothing
+/// is written.
+pub(super) async fn diff(client: &Client, skills: &[String]) -> Result<Output, CommandError> {
+    let snapshot = client.snapshot();
+    let (skills, current) = with_update(&snapshot, resolve::library(&snapshot)?, skills)?;
+    let mut reviews = Vec::with_capacity(skills.len());
+    for id in skills {
+        let fetched = id.clone();
+        let review = on_runtime(client, move |client| async move {
+            client.review_update(fetched).await
+        })
+        .await
+        .map_err(|error| unfetched(&id, error))?;
+        reviews.push(review);
+    }
+    Ok(Output::Reviews(ReviewsOutput {
+        reviews,
+        current: current.iter().map(ToString::to_string).collect(),
+    }))
+}
+
+/// Why `id`'s changes can't be shown, as its review dialog says it: the fetch's or the
+/// refusal's own words.
+fn unfetched(id: &SkillId, error: AppError) -> CommandError {
+    CommandError {
+        message: fetch_failed(id, &error.message),
+        ..error.into()
+    }
+}
+
 /// `update`: the named skills with an update, as their Update buttons offer; the others have
 /// none to take.
 pub(super) fn plan_update(
@@ -64,11 +98,7 @@ pub(super) fn plan_update(
     library: &LibrarySnapshot,
     skills: &[String],
 ) -> Result<Plan, CommandError> {
-    needs_git(snapshot)?;
-    let (skills, current): (Vec<SkillId>, Vec<SkillId>) = resolve::skills(library, skills)?
-        .into_iter()
-        .map(|skill| skill.id.clone())
-        .partition(|id| has_update(snapshot, id));
+    let (skills, current) = with_update(snapshot, library, skills)?;
     if skills.is_empty() {
         return Ok(Plan::Save {
             saves: Vec::new(),
@@ -76,6 +106,19 @@ pub(super) fn plan_update(
         });
     }
     Ok(Plan::Update { skills, current })
+}
+
+/// The named skills with an update, then those without one; both need Git.
+fn with_update(
+    snapshot: &AppSnapshot,
+    library: &LibrarySnapshot,
+    skills: &[String],
+) -> Result<(Vec<SkillId>, Vec<SkillId>), CommandError> {
+    needs_git(snapshot)?;
+    Ok(resolve::skills(library, skills)?
+        .into_iter()
+        .map(|skill| skill.id.clone())
+        .partition(|id| has_update(snapshot, id)))
 }
 
 /// `update --all`: nothing to do while no skill has an update, as Library then offers no

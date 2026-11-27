@@ -94,6 +94,7 @@ pub(crate) use snapshot_query::{
     library_skills, workspace_skills,
 };
 pub(crate) use sync::{HISTORY_PAGE, change_day, change_time, kept, skill_count, why, why_changed};
+pub(crate) use update_review::fetch_failed;
 pub(crate) use without_git::GIT_NEEDED;
 pub(crate) use workspace_targets::offered_folders;
 

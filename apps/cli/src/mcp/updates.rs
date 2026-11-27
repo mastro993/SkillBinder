@@ -11,7 +11,7 @@ use rmcp::{ErrorData, tool, tool_router};
 #[tool_router(router = updates_router, vis = "pub(super)")]
 impl Server {
     #[tool(
-        description = "Checks every skill's source for a newer version and lists the skills with one; updates skills, or all with an update, from their sources; or reinstalls a skill changed outside SkillBinder (drifted) from its record. Updated skills' copies are rewritten. list_skills filter updates lists them as of the last check.",
+        description = "Checks every skill's source for a newer version and lists the skills with one; diff shows what updating skills would change, as a patch for each, changing nothing; updates skills, or all with an update, from their sources; or reinstalls a skill changed outside SkillBinder (drifted) from its record. Updated skills' copies are rewritten. list_skills filter updates lists them as of the last check.",
         output_schema = results::schema::<results::Updates>(),
         annotations(read_only_hint = false, destructive_hint = true, idempotent_hint = false, open_world_hint = true)
     )]

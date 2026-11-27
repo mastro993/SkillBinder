@@ -9,10 +9,13 @@ use serde_json::{Value, json};
 use skillbinder_proto::command_line::{
     AgentRow, Change, Changed, ChoiceRow, ConflictRow, ConflictVersion, Consent, Find, FoundOutput,
     FoundRow, FoundVersion, HistoryOutput, HistoryRow, Output, Progress, Query, Question,
-    RepositoryRow, Request, SearchOutput, SearchRow, SkillsShAnswer, SyncSkillRow,
+    RepositoryRow, Request, ReviewsOutput, SearchOutput, SearchRow, SkillsShAnswer, SyncSkillRow,
     SyncStatusOutput, Unchecked, UpdatesOutput, WorkspaceName, WorkspaceRow,
 };
-use skillbinder_proto::{ChangeKind, Side, SyncState, ValidationStatus};
+use skillbinder_proto::{
+    ChangeKind, FileChange, ReviewedFile, Shown, Side, SkillId, SkillSource, SyncState,
+    UpdateReview, ValidationStatus,
+};
 
 /// The command's side, without a terminal: no progress, and no question answered.
 struct Script;
@@ -121,6 +124,30 @@ fn fixture(request: &Request) -> Output {
                 slug: "sql".into(),
                 reason: "The source can't be reached.".into(),
             }],
+        }),
+        Request::Find {
+            find: Find::Diff { .. },
+        } => Output::Reviews(ReviewsOutput {
+            reviews: vec![UpdateReview {
+                id: SkillId("pdf".into()),
+                source: SkillSource {
+                    url: "https://github.com/acme/skills".into(),
+                    reference: None,
+                    path: "skills/pdf".into(),
+                },
+                from: "9c1f".into(),
+                to: "4b82".into(),
+                drifted: false,
+                files: vec![ReviewedFile {
+                    path: "SKILL.md".into(),
+                    change: FileChange::Changed,
+                    additions: 1,
+                    deletions: 1,
+                    shown: Shown::Lines,
+                }],
+                patch: "diff --git a/SKILL.md b/SKILL.md\n--- a/SKILL.md\n+++ b/SKILL.md\n@@ -1,1 +1,1 @@\n-a\n+b\n".into(),
+            }],
+            current: vec!["sql".into()],
         }),
         request => Output::Changed(Changed {
             message: format!("{request:?}"),
@@ -269,6 +296,12 @@ fn cases(root: &str) -> Vec<Case> {
             "update_skills",
             json!({ "action": "check", "response_format": "detailed" }),
             "updates --check",
+            None,
+        ),
+        case(
+            "update_skills",
+            json!({ "action": "diff", "skill_slugs": ["pdf", "sql"], "response_format": "detailed" }),
+            "update pdf sql --diff",
             None,
         ),
         case(
@@ -452,33 +485,50 @@ async fn a_relative_workspace_path_is_refused_and_any_other_value_is_a_name() ->
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn a_sync_action_missing_what_it_names_is_refused_before_the_app() -> anyhow::Result<()> {
+async fn an_action_missing_what_it_names_is_refused_before_the_app() -> anyhow::Result<()> {
     let root = tempfile::tempdir()?;
     let heard = app(root.path(), |request| vec![outcome(Ok(fixture(request)))])?;
     let mut client = Client::start(root.path());
     client.initialize(json!({})).await?;
     let refusals = [
         (
+            "sync_library",
             json!({ "action": "restore", "skill_slug": "pdf" }),
             "This action needs commit.",
         ),
         (
+            "sync_library",
             json!({ "action": "discard" }),
             "This action needs skill_slug.",
         ),
-        (json!({ "action": "resolve" }), "This action needs choices."),
         (
+            "sync_library",
+            json!({ "action": "resolve" }),
+            "This action needs choices.",
+        ),
+        (
+            "sync_library",
             json!({ "action": "rename_device" }),
             "This action needs name.",
         ),
+        (
+            "update_skills",
+            json!({ "action": "diff", "all": true }),
+            "diff needs skill_slugs, not all.",
+        ),
+        (
+            "update_skills",
+            json!({ "action": "diff", "skill_slugs": ["pdf"], "all": true }),
+            "diff needs skill_slugs, not all.",
+        ),
     ];
-    for (id, (arguments, message)) in (1..).zip(refusals) {
-        let refused = client.call(id, "sync_library", arguments.clone()).await?;
+    for (id, (tool, arguments, message)) in (1..).zip(refusals) {
+        let refused = client.call(id, tool, arguments.clone()).await?;
         let error = &refused["structuredContent"]["error"];
         assert_eq!(
             (&error["code"], &error["message"]),
             (&json!("usage"), &json!(message)),
-            "{arguments}"
+            "{tool} {arguments}"
         );
     }
     assert!(heard.requests().is_empty(), "nothing reached the app");

@@ -2,8 +2,8 @@
 //! holding the command's typed output.
 
 use super::{
-    CommandError, FoundOutput, HistoryOutput, RepositoryRow, SearchOutput, SyncStatusOutput,
-    UpdatesOutput,
+    CommandError, FoundOutput, HistoryOutput, RepositoryRow, ReviewsOutput, SearchOutput,
+    SyncStatusOutput, UpdatesOutput,
 };
 use crate::{AppError, SkillSource, SyncState};
 use schemars::JsonSchema;
@@ -91,6 +91,8 @@ pub enum Output {
     Repositories(Vec<RepositoryRow>),
     /// `updates`.
     Updates(UpdatesOutput),
+    /// `update <slug>… --diff`.
+    Reviews(ReviewsOutput),
     /// `sync status`.
     SyncStatus(Box<SyncStatusOutput>),
     /// `sync history`.

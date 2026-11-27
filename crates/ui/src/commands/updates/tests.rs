@@ -1,11 +1,15 @@
-use super::{plan_reinstall, plan_update, plan_update_all, updated, updates};
+use super::{
+    plan_reinstall, plan_update, plan_update_all, unfetched, updated, updates, with_update,
+};
 use crate::commands::plan::{Plan, plan};
 use crate::commands::run::refusal;
 use crate::gate::Gate;
 use crate::native_view::fixture::{Fixture, id};
 use crate::native_view::{GIT_NEEDED, fixture::agents};
 use skillbinder_proto::command_line::{Change, ErrorCode, Output, Query};
-use skillbinder_proto::{AppSnapshot, Drift, SkillUpdate, UpdateCheck, UpdateOutcome};
+use skillbinder_proto::{
+    AppError, AppSnapshot, Drift, ErrorCategory, SkillUpdate, UpdateCheck, UpdateOutcome,
+};
 
 /// pdf on for Claude Code with an update, sql with none, docx whose source couldn't be checked,
 /// and Git.
@@ -93,6 +97,48 @@ fn update_takes_the_named_skills_with_an_update() {
         skills: vec!["nope".into()],
     };
     assert_eq!(change(&snapshot, unknown).err(), Some(ErrorCode::NotFound));
+}
+
+#[test]
+fn diff_reviews_the_named_skills_with_an_update_and_names_the_others() {
+    let snapshot = with_git(world());
+    let library = snapshot.library.as_ref().unwrap_or_else(|| unreachable!());
+    let named = ["PDF".to_owned(), "sql".to_owned()];
+    assert_eq!(
+        with_update(&snapshot, library, &named).map_err(|error| error.code),
+        Ok((vec![id("pdf")], vec![id("sql")]))
+    );
+    let unknown = with_update(&snapshot, library, &["nope".to_owned()]);
+    assert_eq!(
+        unknown.err().map(|error| error.code),
+        Some(ErrorCode::NotFound)
+    );
+    let without_git = world().build();
+    let Err(missing) = with_update(&without_git, library, &named) else {
+        panic!("a review fetches with Git");
+    };
+    assert_eq!(
+        (missing.code, missing.message.as_str()),
+        (ErrorCode::GitMissing, GIT_NEEDED)
+    );
+}
+
+#[test]
+fn a_review_that_cannot_be_built_says_so_in_the_dialog_s_words() {
+    let offline = AppError::new(
+        ErrorCategory::Offline,
+        "The repository can't be reached.",
+        "Check your connection.",
+    );
+    let error = unfetched(&id("pdf"), offline);
+    assert_eq!(
+        (error.code, error.message.as_str(), error.hint.as_deref()),
+        (
+            ErrorCode::Offline,
+            "Couldn't fetch pdf's source: The repository can't be reached.",
+            Some("Check your connection.")
+        )
+    );
 }
 
 #[test]

@@ -1,6 +1,7 @@
 //! Each result as readable text, one fact per line.
 
 mod explore;
+mod review;
 mod sync;
 
 use skillbinder_proto::SyncState;
@@ -33,6 +34,7 @@ pub(crate) fn output(output: &Output) -> String {
         Output::Search(search) => explore::search(search),
         Output::Repositories(rows) => explore::repositories(rows),
         Output::Updates(updates) => updates_text(updates),
+        Output::Reviews(reviews) => review::reviews(reviews),
         Output::SyncStatus(status) => sync::status(status),
         Output::History(history) => sync::history(history),
         Output::Changed(Changed { message, .. }) => format!("{message}\n"),

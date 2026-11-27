@@ -2,7 +2,7 @@
 
 use super::{flag, name, values};
 use clap::{Arg, ArgGroup, ArgMatches, Command};
-use skillbinder_proto::command_line::Change;
+use skillbinder_proto::command_line::{Change, Find};
 
 pub(super) fn updates() -> Command {
     Command::new("updates")
@@ -27,12 +27,19 @@ pub(super) fn update() -> Command {
             "all",
             "Every skill with an update, as Update all does",
         ))
+        .arg(
+            flag(
+                "diff",
+                "Print what updating the skills would change, as a patch, and change nothing",
+            )
+            .conflicts_with("all"),
+        )
         .group(
             ArgGroup::new("skills")
                 .args(["slugs", "all"])
                 .required(true),
         )
-        .after_help("Example: skillbinder update --all")
+        .after_help("Example: skillbinder update pdf --diff")
 }
 
 pub(super) fn reinstall() -> Command {
@@ -40,6 +47,13 @@ pub(super) fn reinstall() -> Command {
         .about("Restore a skill changed outside SkillBinder to the content its record holds")
         .arg(name("slug", "The skill's slug"))
         .after_help("Example: skillbinder reinstall pdf")
+}
+
+/// `update --diff`'s skills.
+pub(super) fn diff_find(args: &ArgMatches) -> Find {
+    Find::Diff {
+        skills: values(args, "slugs"),
+    }
 }
 
 /// `update`'s skills, or Update all.

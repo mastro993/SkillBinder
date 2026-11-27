@@ -307,6 +307,23 @@ fn updates_and_sync_read_into_their_requests() {
         "update names skills or --all, not both"
     );
     assert_eq!(
+        parse(&["update", "pdf", "sql", "--diff"], false),
+        Request::Find {
+            find: Find::Diff {
+                skills: vec!["pdf".into(), "sql".into()]
+            }
+        }
+    );
+    for line in [
+        &["update", "pdf", "--diff", "--all"][..],
+        &["update", "--all", "--diff"],
+        &["update", "--diff"],
+    ] {
+        let parsed = grammar()
+            .try_get_matches_from(std::iter::once("skillbinder").chain(line.iter().copied()));
+        assert!(parsed.is_err(), "{line:?} is a usage error");
+    }
+    assert_eq!(
         change(&["reinstall", "pdf"]),
         Change::Reinstall {
             skill: "pdf".into()

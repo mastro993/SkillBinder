@@ -10,8 +10,8 @@ use serde::Serialize;
 use serde_json::{Value, json};
 use skillbinder_proto::command_line::{
     AgentRow, Changed, CopyRow, Failure, FolderRow, FoundOutput, FoundRow, HistoryOutput, Output,
-    PresetRow, RepositoryRow, SearchOutput, SearchRow, SkillRow, SkillsShAnswer, SyncStatusOutput,
-    Unchecked, UpdatesOutput, WorkspaceRow,
+    PresetRow, RepositoryRow, ReviewsOutput, SearchOutput, SearchRow, SkillRow, SkillsShAnswer,
+    SyncStatusOutput, Unchecked, UpdatesOutput, WorkspaceRow,
 };
 use std::sync::Arc;
 
@@ -86,12 +86,13 @@ pub(crate) struct Checked {
     more: usize,
 }
 
-/// update_skills' result: check's list, or what an update or reinstall did.
+/// update_skills' result: check's list, diff's reviews, or what an update or reinstall did.
 #[derive(JsonSchema)]
 #[serde(untagged)]
 #[expect(dead_code, reason = "only its schema is used")]
 pub(crate) enum Updates {
     Checked(Checked),
+    Reviewed(ReviewsOutput),
     Changed(Changed),
 }
 
@@ -291,6 +292,7 @@ fn structured(output: Output, more: usize) -> Value {
         | Output::Skill(_)
         | Output::SyncStatus(_)
         | Output::History(_)
+        | Output::Reviews(_)
         | Output::Changed(_) => render::result(&output),
     }
 }
