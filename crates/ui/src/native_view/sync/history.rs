@@ -81,6 +81,8 @@ impl NativeView {
     /// Shows a page that was read: Show more's after the others, a first page in their place.
     fn history_read(&mut self, more: bool, result: AppResult<SyncHistory>, cx: &mut Context<Self>) {
         let pages = &mut self.sync_history;
+        // A read answered before, even with no change, so whatever this one brings is new.
+        let answered = pages.read_at.is_some();
         if more {
             pages.more = false;
         } else {
@@ -97,14 +99,7 @@ impl NativeView {
         if more {
             pages.changes.extend(page.changes);
         } else {
-            let known: BTreeSet<&str> = pages.changes.iter().map(|c| c.commit.as_str()).collect();
-            // The first read shows what is there; a later one flashes what it brings.
-            let fresh: BTreeSet<String> = page
-                .changes
-                .iter()
-                .filter(|change| !known.is_empty() && !known.contains(change.commit.as_str()))
-                .map(|change| change.commit.clone())
-                .collect();
+            let fresh = days::fresh(answered, &pages.changes, &page.changes);
             if !fresh.is_empty() {
                 pages.fresh = Some((fresh, Flash::new(None)));
             }

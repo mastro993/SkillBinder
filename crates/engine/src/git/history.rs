@@ -2,9 +2,10 @@
 //! first, each with the device that made it, its time, and the skills it changed against its
 //! first parent, each with why.
 //!
-//! A Sync's merge takes the remote's commit as its first parent, so this chain is the published
-//! history on every device. The tree diff, not the trailers, says which skills a commit changed,
-//! so a commit made before device names still lists its skills (A4).
+//! Sync only fast-forwards today, so the chain is the published history on every device; a merge
+//! lists what it brings against its first parent alone. The tree diff, not the trailers, says
+//! which skills a commit changed, so a commit made before device names still lists its skills
+//! (A4).
 
 use super::note::{DEVICE, SKILL, skill_trailer};
 use super::{Git, record_of, skill_of};

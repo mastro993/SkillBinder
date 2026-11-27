@@ -5,7 +5,7 @@
 use super::super::super::library_dates::from_unix;
 use chrono::{DateTime, Datelike, TimeZone};
 use skillbinder_proto::{ChangedSkill, SyncChange};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Display;
 
 /// The most skill chips a change shows before "+<n> more".
@@ -85,6 +85,20 @@ pub(super) fn newest(changes: &[SyncChange]) -> BTreeMap<&str, &str> {
         }
     }
     newest
+}
+
+/// The commits a first page `read` holds that the `shown` one did not, which flash once; none on
+/// the first read, which only shows what is there, unless an earlier read `answered`, even with
+/// no change.
+pub(super) fn fresh(answered: bool, shown: &[SyncChange], read: &[SyncChange]) -> BTreeSet<String> {
+    if !answered {
+        return BTreeSet::new();
+    }
+    let shown: BTreeSet<&str> = shown.iter().map(|c| c.commit.as_str()).collect();
+    read.iter()
+        .filter(|change| !shown.contains(change.commit.as_str()))
+        .map(|change| change.commit.clone())
+        .collect()
 }
 
 #[cfg(test)]

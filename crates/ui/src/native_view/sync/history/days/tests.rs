@@ -100,3 +100,18 @@ fn a_skill_s_newest_change_is_the_first_listed() {
     assert_eq!(newest.get("review"), Some(&"new"));
     assert_eq!(newest.get("deploy"), Some(&"old"));
 }
+
+#[test]
+fn a_read_flashes_what_it_brings_once_an_earlier_read_answered() {
+    let old = change("old", at(2026, 11, 26, 9, 0), &["review"]);
+    let new = change("new", now(), &["review"]);
+    let read = [new.clone(), old.clone()];
+    let flashed = |answered, shown: &[SyncChange]| -> Vec<String> {
+        fresh(answered, shown, &read).into_iter().collect()
+    };
+    assert_eq!(flashed(true, &[old]), ["new"]);
+    // The first change of a library whose earlier read found none still flashes.
+    assert_eq!(flashed(true, &[]), ["new", "old"]);
+    // The first read only shows what is there.
+    assert!(flashed(false, &[]).is_empty());
+}
