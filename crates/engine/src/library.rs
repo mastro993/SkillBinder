@@ -17,6 +17,9 @@ use std::{
 use unicode_casefold::UnicodeCaseFold;
 use unicode_normalization::UnicodeNormalization;
 
+/// The largest file a skill's page previews, and an update review shows in lines.
+pub(crate) const PREVIEW_LIMIT: u64 = 128 * 1024;
+
 pub(crate) fn normalized(value: &str) -> String {
     value.nfkc().case_fold().collect()
 }
@@ -460,7 +463,7 @@ impl State {
             .map_err(storage::error_at("reading the metadata of", &selected))?;
         let (text, unavailable) = if !metadata.is_file() {
             (None, Some("This entry is not a regular file.".into()))
-        } else if metadata.len() > 128 * 1024 {
+        } else if metadata.len() > PREVIEW_LIMIT {
             (
                 None,
                 Some("This file is larger than the 128 KiB preview limit.".into()),
@@ -470,10 +473,10 @@ impl State {
             let mut bytes = Vec::new();
             fs::File::open(&selected)
                 .map_err(storage::error_at("opening", &selected))?
-                .take(128 * 1024 + 1)
+                .take(PREVIEW_LIMIT + 1)
                 .read_to_end(&mut bytes)
                 .map_err(storage::error_at("reading", &selected))?;
-            if bytes.len() > 128 * 1024 {
+            if bytes.len() as u64 > PREVIEW_LIMIT {
                 (
                     None,
                     Some("This file grew beyond the preview limit.".into()),

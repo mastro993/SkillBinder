@@ -1,16 +1,21 @@
 //! The patch an update review shows: a Git-style unified diff from the library's files to the
 //! fetched ones, built in-process with `similar` so the user's Git configuration never shapes it
 //! (ADR 0037). Each text file carries its whole text as context, so the window can unfold every
-//! unchanged stretch it folds.
+//! unchanged stretch it folds. A binary file, a file over the preview limit, and every file once
+//! the patch reached its cap carry only their headers, and the review says why (R5).
 
+use crate::library::PREVIEW_LIMIT;
 use crate::payload::{Manifest, ManifestKind};
 use similar::{ChangeTag, TextDiff};
-use skillbinder_proto::{FileChange, ReviewedFile};
+use skillbinder_proto::{FileChange, ReviewedFile, Shown};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write;
 
 /// Git reads a file as binary when a NUL byte is in its first this many bytes.
 const BINARY_PROBE: usize = 8000;
+
+/// The most patch a review shows; files whose lines would pass it show without them.
+pub(super) const PATCH_CAP: usize = 4 * 1024 * 1024;
 
 /// One side's files by relative path: their bytes, and whether each is executable.
 pub(super) type Files<'a> = BTreeMap<&'a str, (&'a [u8], bool)>;
@@ -32,7 +37,7 @@ pub(super) fn files<'a>(manifest: &'a Manifest, bytes: &'a BTreeMap<String, Vec<
 /// how.
 pub(super) fn build(before: &Files, after: &Files) -> (Vec<ReviewedFile>, String) {
     let paths: BTreeSet<&str> = before.keys().chain(after.keys()).copied().collect();
-    let mut patch = String::new();
+    let mut patch = Patch::default();
     let files = paths
         .into_iter()
         .filter_map(|path| {
@@ -40,7 +45,14 @@ pub(super) fn build(before: &Files, after: &Files) -> (Vec<ReviewedFile>, String
             (old != new).then(|| file(path, old, new, &mut patch))
         })
         .collect();
-    (files, patch)
+    (files, patch.text)
+}
+
+/// The patch so far, and whether a file's lines already passed its cap.
+#[derive(Default)]
+struct Patch {
+    text: String,
+    capped: bool,
 }
 
 /// Writes one file's entry into `patch`, as `git diff` does.
@@ -48,21 +60,22 @@ fn file(
     path: &str,
     old: Option<(&[u8], bool)>,
     new: Option<(&[u8], bool)>,
-    patch: &mut String,
+    patch: &mut Patch,
 ) -> ReviewedFile {
-    let _ = writeln!(patch, "diff --git a/{path} b/{path}");
+    let header = &mut patch.text;
+    let _ = writeln!(header, "diff --git a/{path} b/{path}");
     let change = match (old, new) {
         (None, Some((_, executable))) => {
-            let _ = writeln!(patch, "new file mode {}", mode(executable));
+            let _ = writeln!(header, "new file mode {}", mode(executable));
             FileChange::Added
         }
         (Some((_, executable)), None) => {
-            let _ = writeln!(patch, "deleted file mode {}", mode(executable));
+            let _ = writeln!(header, "deleted file mode {}", mode(executable));
             FileChange::Removed
         }
         (Some((_, was)), Some((_, is))) => {
             if was != is {
-                let _ = writeln!(patch, "old mode {}\nnew mode {}", mode(was), mode(is));
+                let _ = writeln!(header, "old mode {}\nnew mode {}", mode(was), mode(is));
             }
             FileChange::Changed
         }
@@ -71,23 +84,55 @@ fn file(
     let (before, after) = (old.map(|(bytes, _)| bytes), new.map(|(bytes, _)| bytes));
     let old_name = old.map_or_else(|| "/dev/null".to_owned(), |_| format!("a/{path}"));
     let new_name = new.map_or_else(|| "/dev/null".to_owned(), |_| format!("b/{path}"));
-    let (additions, deletions) = if before == after {
+    let (shown, additions, deletions) = if before == after {
         // Only the executable bit changed.
-        (0, 0)
+        (Shown::Lines, 0, 0)
     } else {
-        match (text(before), text(after)) {
-            (Some(before), Some(after)) => lines(before, after, &old_name, &new_name, patch),
-            _ => {
-                let _ = writeln!(patch, "Binary files {old_name} and {new_name} differ");
-                (0, 0)
-            }
-        }
+        patch.content(before, after, &old_name, &new_name)
     };
     ReviewedFile {
         path: path.to_owned(),
         change,
         additions,
         deletions,
+        shown,
+    }
+}
+
+impl Patch {
+    /// Writes how a file's content changes from `before` to `after`, named `old` and `new`, and
+    /// returns how the review shows it and the lines added and removed.
+    fn content(
+        &mut self,
+        before: Option<&[u8]>,
+        after: Option<&[u8]>,
+        old: &str,
+        new: &str,
+    ) -> (Shown, u64, u64) {
+        let (Some(old_text), Some(new_text)) = (text(before), text(after)) else {
+            let _ = writeln!(self.text, "Binary files {old} and {new} differ");
+            let size = |bytes: Option<&[u8]>| bytes.map(|bytes| bytes.len() as u64);
+            let (before, after) = (size(before), size(after));
+            return (Shown::Binary { before, after }, 0, 0);
+        };
+        if [old_text, new_text]
+            .iter()
+            .any(|text| text.len() as u64 > PREVIEW_LIMIT)
+        {
+            return (Shown::TooLarge, 0, 0);
+        }
+        if self.capped {
+            return (Shown::PastCap, 0, 0);
+        }
+        let mut hunk = String::new();
+        let (additions, deletions) = lines(old_text, new_text, old, new, &mut hunk);
+        if self.text.len() + hunk.len() > PATCH_CAP {
+            // Later files show without their lines too, even ones that would fit.
+            self.capped = true;
+            return (Shown::PastCap, 0, 0);
+        }
+        self.text.push_str(&hunk);
+        (Shown::Lines, additions, deletions)
     }
 }
 

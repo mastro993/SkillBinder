@@ -13,8 +13,8 @@ mod support;
 use publisher::Publisher;
 use skillbinder_engine::Engine;
 use skillbinder_proto::{
-    FileChange, Moved, OrganizationChange, PresetId, ReviewedOutcome, ReviewedUpdate, SkillId,
-    UpdateOutcome, UpdateReview,
+    ErrorCategory, FileChange, Moved, OrganizationChange, PresetId, ReviewedOutcome,
+    ReviewedUpdate, Shown, SkillId, UpdateOutcome, UpdateReview,
 };
 use std::{fs, path::Path};
 use support::Fixture;
@@ -173,6 +173,8 @@ async fn a_review_lists_each_changed_file_and_writes_nothing() {
         ]
     );
     assert_eq!(review.totals(), (4, 2));
+    assert!(review.files.iter().all(|file| file.shown == Shown::Lines));
+    assert!(!review.drifted);
     assert_eq!(review.source.path, "skills/pdf");
     assert!(review.patch.contains("+print(pdf.tables())\n"));
     assert!(review.patch.contains("--- a/reference.md\n+++ /dev/null\n"));
@@ -291,5 +293,120 @@ async fn update_from_a_review_that_fails_records_why_as_update_does() {
         reviewed.library_text("reference.md").as_deref(),
         Some("Notes.\n")
     );
+    reviewed.engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_drifted_skill_shows_its_local_edits_as_removed_lines() {
+    let reviewed = Reviewed::new().await;
+    reviewed.publish(&second(), "second");
+    let skill = reviewed.library().join("SKILL.md");
+    fs::write(&skill, format!("{SKILL}Local line.\n")).unwrap();
+
+    let review = reviewed.review().await;
+    assert!(review.drifted);
+    assert!(review.patch.contains("-Local line.\n"), "{}", review.patch);
+    reviewed.engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn content_an_update_would_refuse_is_its_refusal_not_a_retry() {
+    let reviewed = Reviewed::new().await;
+    let mut broken = second();
+    broken[0].1 = "---\nname: [invalid\n---\n".into();
+    reviewed.publish(&broken, "broken");
+
+    let error = reviewed.engine.review_update(pdf()).await.unwrap_err();
+    assert_eq!(
+        error.message,
+        "The source's current version has invalid skill metadata."
+    );
+    assert!(!error.retryable);
+    assert!(!reviewed.staging_left());
+    reviewed.engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_source_that_cannot_be_fetched_can_be_retried() {
+    let reviewed = Reviewed::new().await;
+    reviewed.publish(&second(), "second");
+    let away = reviewed.publisher.dir.with_file_name("away");
+    fs::rename(&reviewed.publisher.dir, &away).unwrap();
+
+    let error = reviewed.engine.review_update(pdf()).await.unwrap_err();
+    assert_eq!(error.category, ErrorCategory::Git);
+    assert!(error.retryable);
+    assert_eq!(
+        error.message,
+        "Git could not read the source. Check access and the repository."
+    );
+
+    // Retrying fetches again.
+    fs::rename(&away, &reviewed.publisher.dir).unwrap();
+    assert_eq!(reviewed.review().await.files.len(), 4);
+    reviewed.engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn binary_and_large_files_show_one_line_each() {
+    let reviewed = Reviewed::new().await;
+    let mut files = second();
+    files.push(("big.md", "a line of text\n".repeat(200 * 1024 / 15)));
+    reviewed.publish(&files, "large");
+    let pdf_file = reviewed
+        .publisher
+        .dir
+        .join("skills/pdf/assets/form-sample.pdf");
+    fs::create_dir_all(pdf_file.parent().unwrap()).unwrap();
+    fs::write(&pdf_file, b"%PDF-1.7\0binary").unwrap();
+    reviewed.publisher.commit("binary");
+
+    let review = reviewed.review().await;
+    let shown: Vec<_> = review
+        .files
+        .iter()
+        .filter(|file| file.shown != Shown::Lines)
+        .map(|file| (file.path.as_str(), file.shown))
+        .collect();
+    assert_eq!(
+        shown,
+        [
+            (
+                "assets/form-sample.pdf",
+                Shown::Binary {
+                    before: None,
+                    after: Some(15)
+                }
+            ),
+            ("big.md", Shown::TooLarge),
+        ]
+    );
+    assert!(!review.patch.contains("a line of text"));
+    reviewed.engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn changes_past_the_cap_are_listed_without_their_lines() {
+    let reviewed = Reviewed::new().await;
+    // Each part is under the preview limit; together they pass the 4 MiB cap.
+    let part = format!("{}\n", "x".repeat(99)).repeat(1200);
+    let paths: Vec<String> = (0..40).map(|ix| format!("parts/{ix:02}.md")).collect();
+    let mut files: Vec<(&str, String)> = second();
+    files.extend(paths.iter().map(|path| (path.as_str(), part.clone())));
+    reviewed.publish(&files, "large");
+
+    let review = reviewed.review().await;
+    let past = review
+        .files
+        .iter()
+        .position(|file| file.shown == Shown::PastCap)
+        .unwrap();
+    assert!(past > 0);
+    assert!(
+        review.files[past..]
+            .iter()
+            .all(|file| file.shown == Shown::PastCap)
+    );
+    assert!(review.patch.len() < 4 * 1024 * 1024 + 4096);
     reviewed.engine.shutdown().await.unwrap();
 }

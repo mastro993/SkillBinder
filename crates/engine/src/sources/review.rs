@@ -97,7 +97,8 @@ impl State {
             .ok_or_else(|| AppError::not_found("This skill is no longer in the library."))
     }
 
-    /// The changes from `skill`'s library content to `fetched`, from `source`.
+    /// The changes from `skill`'s library content to `fetched`, from `source`, noting when that
+    /// content has drifted from its record, which reconciling would also note (R8).
     fn review(
         &self,
         skill: &Skill,
@@ -120,6 +121,7 @@ impl State {
             source,
             from: current.manifest.digest,
             to: fetched.tree.clone(),
+            drifted: current.tree != skill.recorded,
             files,
             patch,
         })
