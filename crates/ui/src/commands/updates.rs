@@ -15,6 +15,7 @@ use skillbinder_proto::command_line::{
 };
 use skillbinder_proto::{
     AppError, AppSnapshot, Drift, LibrarySnapshot, SkillId, UpdateCheck, UpdateOutcome,
+    UpdateReview,
 };
 
 /// Fails with the app's own words while Git is missing or too old (spec rule 5).
@@ -63,23 +64,63 @@ pub(super) async fn check(client: &Client) -> Result<Output, CommandError> {
 /// `update <slug>… --diff`: the changes Update would land in each named skill with an update,
 /// as its review dialog shows them, built one after another behind any running change; nothing
 /// is written.
-pub(super) async fn diff(client: &Client, skills: &[String]) -> Result<Output, CommandError> {
+pub(super) async fn diff(client: &Client, skills: &[String]) -> Result<Output, Failure> {
     let snapshot = client.snapshot();
     let (skills, current) = with_update(&snapshot, resolve::library(&snapshot)?, skills)?;
-    let mut reviews = Vec::with_capacity(skills.len());
+    let mut fetched = Vec::with_capacity(skills.len());
     for id in skills {
-        let fetched = id.clone();
+        let skill = id.clone();
         let review = on_runtime(client, move |client| async move {
-            client.review_update(fetched).await
+            client.review_update(skill).await
         })
-        .await
-        .map_err(|error| unfetched(&id, error))?;
-        reviews.push(review);
+        .await;
+        fetched.push((id, review));
     }
-    Ok(Output::Reviews(ReviewsOutput {
+    reviewed(fetched, &current)
+}
+
+/// The reviews built, beside the skills without an update; a review that can't be built fails
+/// the command, with the others' reviews as its result.
+fn reviewed(
+    fetched: Vec<(SkillId, Result<UpdateReview, AppError>)>,
+    current: &[SkillId],
+) -> Result<Output, Failure> {
+    let mut reviews = Vec::with_capacity(fetched.len());
+    let mut failed = Vec::new();
+    for (id, review) in fetched {
+        match review {
+            Ok(review) => reviews.push(review),
+            Err(error) => failed.push(unfetched(&id, error)),
+        }
+    }
+    let error = match failed.as_slice() {
+        [] => None,
+        [one] => Some(one.clone()),
+        many => Some(
+            CommandError::new(
+                ErrorCode::Failed,
+                format!("{} skills' changes couldn't be shown", many.len()),
+            )
+            .hint(
+                many.iter()
+                    .map(|error| error.message.as_str())
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+            ),
+        ),
+    };
+    let partial = !reviews.is_empty() || !current.is_empty();
+    let output = Output::Reviews(ReviewsOutput {
         reviews,
         current: current.iter().map(ToString::to_string).collect(),
-    }))
+    });
+    match error {
+        None => Ok(output),
+        Some(error) => Err(Failure {
+            error,
+            result: partial.then(|| Box::new(output)),
+        }),
+    }
 }
 
 /// Why `id`'s changes can't be shown, as its review dialog says it: the fetch's or the

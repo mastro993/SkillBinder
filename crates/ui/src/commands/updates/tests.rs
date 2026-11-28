@@ -1,14 +1,15 @@
 use super::{
-    plan_reinstall, plan_update, plan_update_all, unfetched, updated, updates, with_update,
+    plan_reinstall, plan_update, plan_update_all, reviewed, updated, updates, with_update,
 };
 use crate::commands::plan::{Plan, plan};
 use crate::commands::run::refusal;
 use crate::gate::Gate;
 use crate::native_view::fixture::{Fixture, id};
 use crate::native_view::{GIT_NEEDED, fixture::agents};
-use skillbinder_proto::command_line::{Change, ErrorCode, Output, Query};
+use skillbinder_proto::command_line::{Change, ErrorCode, Failure, Output, Query, ReviewsOutput};
 use skillbinder_proto::{
-    AppError, AppSnapshot, Drift, ErrorCategory, SkillUpdate, UpdateCheck, UpdateOutcome,
+    AppError, AppSnapshot, Drift, ErrorCategory, SkillSource, SkillUpdate, UpdateCheck,
+    UpdateOutcome, UpdateReview,
 };
 
 /// pdf on for Claude Code with an update, sql with none, docx whose source couldn't be checked,
@@ -123,22 +124,77 @@ fn diff_reviews_the_named_skills_with_an_update_and_names_the_others() {
     );
 }
 
-#[test]
-fn a_review_that_cannot_be_built_says_so_in_the_dialog_s_words() {
-    let offline = AppError::new(
+fn offline() -> AppError {
+    AppError::new(
         ErrorCategory::Offline,
         "The repository can't be reached.",
         "Check your connection.",
-    );
-    let error = unfetched(&id("pdf"), offline);
+    )
+}
+
+fn review(slug: &str) -> UpdateReview {
+    UpdateReview {
+        id: id(slug),
+        source: SkillSource {
+            url: "https://github.com/acme/skills".into(),
+            reference: None,
+            path: format!("skills/{slug}"),
+        },
+        from: "9c1f".into(),
+        to: "4b82".into(),
+        drifted: false,
+        files: Vec::new(),
+        patch: String::new(),
+    }
+}
+
+#[test]
+fn a_review_that_cannot_be_built_says_so_in_the_dialog_s_words_beside_the_others() {
+    let Err(Failure { error, result }) = reviewed(
+        vec![(id("pdf"), Ok(review("pdf"))), (id("docx"), Err(offline()))],
+        &[id("sql")],
+    ) else {
+        panic!("docx's review couldn't be built");
+    };
     assert_eq!(
         (error.code, error.message.as_str(), error.hint.as_deref()),
         (
             ErrorCode::Offline,
-            "Couldn't fetch pdf's source: The repository can't be reached.",
+            "Couldn't fetch docx's source: The repository can't be reached.",
             Some("Check your connection.")
         )
     );
+    let Some(Output::Reviews(ReviewsOutput { reviews, current })) = result.as_deref() else {
+        panic!("pdf's review still reaches the command");
+    };
+    assert_eq!(reviews, &[review("pdf")]);
+    assert_eq!(current, &["sql".to_owned()]);
+}
+
+#[test]
+fn reviews_that_cannot_be_built_are_each_named() {
+    let Err(Failure { error, result }) = reviewed(
+        vec![(id("pdf"), Err(offline())), (id("docx"), Err(offline()))],
+        &[],
+    ) else {
+        panic!("no review could be built");
+    };
+    assert_eq!(
+        (error.code, error.message.as_str(), error.hint.as_deref()),
+        (
+            ErrorCode::Failed,
+            "2 skills' changes couldn't be shown",
+            Some(
+                "Couldn't fetch pdf's source: The repository can't be reached.\n\
+                 Couldn't fetch docx's source: The repository can't be reached."
+            )
+        )
+    );
+    assert!(result.is_none(), "nothing else to show");
+    assert!(matches!(
+        reviewed(vec![(id("pdf"), Ok(review("pdf")))], &[]),
+        Ok(Output::Reviews(_))
+    ));
 }
 
 #[test]
