@@ -192,10 +192,11 @@ impl Client {
 
 impl Shared {
     /// Publishes the catalog, its state, your repositories, and the installs without waiting on
-    /// the worker.
+    /// the worker. It reads the engine under the snapshot's lock, so a publisher that read before
+    /// a later change can't overwrite what that change published.
     pub(crate) fn publish_explore(&self) {
-        let explore = self.engine.current_explore();
         self.snapshots.send_if_modified(|current| {
+            let explore = self.engine.current_explore();
             if current.explore == explore {
                 return false;
             }
