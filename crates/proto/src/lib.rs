@@ -35,6 +35,7 @@ pub use sync::*;
 pub use update_review::*;
 pub use workspaces::*;
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 macro_rules! identifier {
@@ -77,7 +78,9 @@ identifier!(GrantId, "A short-lived, single-use native directory grant.");
 identifier!(RepositoryId, "A repository identity on this device.");
 
 /// A library skill's slug: its directory name under `skills/`, the same on every device.
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(transparent)]
 pub struct SkillId(pub String);
 impl SkillId {

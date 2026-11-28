@@ -16,6 +16,8 @@ use skillbinder_proto::{
     ErrorCategory, FileChange, Moved, OrganizationChange, PresetId, ReviewedOutcome,
     ReviewedUpdate, Shown, SkillId, UpdateOutcome, UpdateReview,
 };
+use std::io::Write;
+use std::process::{Command, Stdio};
 use std::{fs, path::Path};
 use support::Fixture;
 
@@ -178,6 +180,34 @@ async fn a_review_lists_each_changed_file_and_writes_nothing() {
     assert_eq!(review.source.path, "skills/pdf");
     assert!(review.patch.contains("+print(pdf.tables())\n"));
     assert!(review.patch.contains("--- a/reference.md\n+++ /dev/null\n"));
+    // Git takes the patch against the library's `pdf` folder, as `update pdf --diff` prints it.
+    let mut check = Command::new("git")
+        .args([
+            "apply",
+            "--check",
+            "--verbose",
+            "--directory=skills/pdf",
+            "-",
+        ])
+        .current_dir(reviewed.fixture.data.join("library"))
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    check
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(review.patch.as_bytes())
+        .unwrap();
+    let checked = check.wait_with_output().unwrap();
+    let said = String::from_utf8_lossy(&checked.stderr);
+    assert!(checked.status.success(), "{said}");
+    assert!(
+        said.contains("Checking patch skills/pdf/scripts/fill_form.py"),
+        "{said}"
+    );
     // Nothing changed, and nothing is left behind.
     assert_eq!(
         reviewed.library_text("reference.md").as_deref(),

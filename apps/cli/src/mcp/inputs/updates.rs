@@ -15,6 +15,9 @@ use std::collections::BTreeMap;
 pub(crate) enum UpdateAction {
     /// Checks every skill's source now and lists the skills with an update.
     Check,
+    /// Shows what updating `skill_slugs` would change, as a patch for each skill with an update,
+    /// and changes nothing.
+    Diff,
     /// Updates `skill_slugs`, or with `all` every skill with an update, from their sources.
     Update,
     /// Restores the one skill in `skill_slugs`, changed outside SkillBinder (drifted), to the
@@ -32,14 +35,15 @@ pub(crate) struct UpdateSkills {
     /// Update every skill with an update, as Update all does, instead of `skill_slugs`.
     #[serde(default)]
     all: bool,
-    /// How much check's list says.
+    /// How much check's list and diff's reviews say.
     #[serde(default)]
     pub(crate) response_format: ResponseFormat,
 }
 
 /// What an update_skills or sync_library call sends.
 pub(crate) enum Sending {
-    /// A request that only reads: the check, what waits to sync, or History.
+    /// A request that only reads: the check, an update's changes, what waits to sync, or
+    /// History.
     Read(Request),
     /// A change.
     Change(Change),
@@ -49,6 +53,14 @@ impl UpdateSkills {
     pub(crate) fn request(&self) -> Result<Sending, CommandError> {
         Ok(match (self.action, self.skill_slugs.as_slice(), self.all) {
             (UpdateAction::Check, ..) => Sending::Read(Request::Find { find: Find::Check }),
+            (UpdateAction::Diff, [_, ..], false) => Sending::Read(Request::Find {
+                find: Find::Diff {
+                    skills: self.skill_slugs.clone(),
+                },
+            }),
+            (UpdateAction::Diff, ..) => {
+                return Err(usage("diff needs skill_slugs, not all."));
+            }
             (UpdateAction::Update, [], true) => Sending::Change(Change::UpdateAll),
             (UpdateAction::Update, [_, ..], false) => Sending::Change(Change::Update {
                 skills: self.skill_slugs.clone(),

@@ -87,7 +87,7 @@ sequenceDiagram
   - `crates/ui/src/native_view/update_review.rs` (with `update_review/` submodules if it grows) adds `DialogState::UpdateReview`, whose state is `Fetching`, `Ready { review, diff: Entity<DiffState>, notice }`, `Failed { message, retry }`, or `Updating`.
   - `library_updates.rs`'s `update_button` and the context menu's `update-skill` item open it, in place of `update(vec![id])`. `update(...)` stays for Update all's per-skill path, if nothing else calls it.
   - The footer uses `DialogFooter`, and the notices use `Notice`.
-- **Command line and MCP** (behavior 8): `update` gains `--diff` (clap `conflicts_with = "all"`), a `Find` request that answers `Output::Reviews(Vec<UpdateReview>)`. `apps/cli/src/mcp/inputs/updates.rs` gains `diff`, with `skill_slugs`, which returns `reviews`.
+- **Command line and MCP** (behavior 8): `update` gains `--diff` (clap `conflicts_with = "all"`), a `Find` request that answers `Output::Reviews(ReviewsOutput { reviews: Vec<UpdateReview>, current })`, `current` naming the skills without an update; JSON names a review's `id` `slug`. `apps/cli/src/mcp/inputs/updates.rs` gains `diff`, with `skill_slugs`, which returns `reviews`.
 - **Rollout**: no stored data, schema, or flag. Update's behavior changes in one release.
 
 ## Acceptance
@@ -104,7 +104,7 @@ Fixture: a local bare repository holds `skills/pdf`. The library's `pdf` records
 8. **Fetch failure.** With the remote moved away, the dialog shows "Couldn't fetch pdf's source: …" with Retry.
 9. **Limits.** A 200 KiB text file shows "Too large to show (over 128 KiB)". A skill whose changes pass 4 MiB lists the rest as not shown.
 10. **Update all.** Library's header, the menu, and `update --all` update without any dialog.
-11. **Command line.** `skillbinder update pdf --diff` prints the header line and a patch that `git apply --check` accepts against the library's `pdf` folder, and changes nothing. `--json` returns the review. `update pdf --diff --all` is a usage error. MCP `update_skills` `diff` returns the same reviews.
+11. **Command line.** `skillbinder update pdf --diff` prints the header line and a patch that `git apply --check --directory=skills/pdf` accepts from the library's folder, and changes nothing. `--json` returns the review. `update pdf --diff --all` is a usage error. MCP `update_skills` `diff` returns the same reviews.
 12. **Checks pass:** `cargo fmt --all --check`, workspace Clippy, `cccc .`, workspace tests, `cargo run -p xtask -- verify`, and a locked release build.
 
 ## Slices

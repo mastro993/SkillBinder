@@ -184,12 +184,17 @@ fn dispatch(request: Request, peer: Peer, running: Connection, cx: &mut App) {
         Request::Find { find } => {
             cx.spawn(async move |_| {
                 let found = match find {
-                    Find::Scan => import::scan(&client).await,
-                    Find::Search { query } => explore::search(&client, &query).await,
-                    Find::Check => updates::check(&client).await,
-                    Find::History { before, limit } => sync::history(&client, before, limit).await,
+                    Find::Scan => import::scan(&client).await.map_err(Failure::from),
+                    Find::Search { query } => explore::search(&client, &query)
+                        .await
+                        .map_err(Failure::from),
+                    Find::Check => updates::check(&client).await.map_err(Failure::from),
+                    Find::Diff { skills } => updates::diff(&client, &skills).await,
+                    Find::History { before, limit } => sync::history(&client, before, limit)
+                        .await
+                        .map_err(Failure::from),
                 };
-                peer.finish(found.map_err(Failure::from));
+                peer.finish(found);
                 drop(running);
             })
             .detach();

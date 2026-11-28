@@ -17,7 +17,7 @@ use skillbinder_design::{
     Button, DialogFooter, DialogHeader, DialogSize, DiffView, IconSize, Notice, NoticeSize, Status,
     Text, TextTone, icon,
 };
-use skillbinder_proto::{Moved, SkillId, SkillSource, UpdateReview, normalized_url};
+use skillbinder_proto::{Moved, SkillId, UpdateReview};
 
 impl NativeView {
     /// The open review dialog in `dialog`, at the Import skills dialog's size (R1).
@@ -82,7 +82,7 @@ impl NativeView {
                     .flex_1()
                     .min_h_0()
                     .gap(px(space::LG))
-                    .when(review.drifted, |body| body.child(drift_notice(slug)))
+                    .children(review.drift_note().map(drift_notice))
                     .children(moved.map(|moved| moved_notice(slug, moved)))
                     .child(DiffView::new(diff).notes(notes.clone()).flex_1());
                 frame.body(body).apply(dialog, cx)
@@ -127,7 +127,7 @@ fn summary(review: &UpdateReview) -> AnyElement {
         .gap(px(space::XS))
         .child(icon(repository_glyph(&review.source.url)).with_size(IconSize::Sm))
         .child(
-            Text::new(place(&review.source))
+            Text::new(review.source.place())
                 .level(text::MONO_SM)
                 .muted()
                 .min_w_0()
@@ -143,19 +143,6 @@ fn summary(review: &UpdateReview) -> AnyElement {
         .into_any_element()
 }
 
-/// The source's repository without its scheme, then its folder: `github.com/acme/skills ·
-/// skills/pdf`.
-fn place(source: &SkillSource) -> String {
-    let normalized = normalized_url(&source.url);
-    let repository = normalized
-        .split_once("://")
-        .map_or(normalized.as_str(), |(_, rest)| rest);
-    match source.path.as_str() {
-        "" => repository.to_owned(),
-        path => format!("{repository} · {path}"),
-    }
-}
-
 /// "· 1 file changed ·" or "· <N> files changed ·".
 fn files_changed(count: usize) -> String {
     match count {
@@ -165,14 +152,8 @@ fn files_changed(count: usize) -> String {
 }
 
 /// The skill's local edits, which the changes show as removed lines (R8).
-fn drift_notice(slug: &SkillId) -> Notice {
-    Notice::new("update-review-drifted", drift_text(slug)).status(Status::Warning)
-}
-
-fn drift_text(slug: &SkillId) -> String {
-    format!(
-        "{slug} was changed outside SkillBinder. Updating replaces those changes too; they show as removed lines."
-    )
+fn drift_notice(note: String) -> Notice {
+    Notice::new("update-review-drifted", note).status(Status::Warning)
 }
 
 /// Why the changes shown replaced the reviewed ones (R9).

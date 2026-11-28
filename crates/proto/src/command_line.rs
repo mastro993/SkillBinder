@@ -23,7 +23,7 @@ pub use sync::{
     ChoiceRow, ConflictRow, ConflictVersion, HistoryOutput, HistoryRow, SyncCommand, SyncKind,
     SyncSkillRow, SyncStatusOutput,
 };
-pub use updates::{Unchecked, UpdatesOutput};
+pub use updates::{ReviewsOutput, Unchecked, UpdatesOutput};
 
 use crate::{AppError, ErrorCategory};
 use schemars::JsonSchema;
@@ -31,7 +31,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 /// The protocol both sides speak; a command and an app with different numbers refuse each other.
-pub const PROTOCOL: u32 = 8;
+pub const PROTOCOL: u32 = 9;
 
 /// A Unix socket's path must fit `sun_path`, 104 bytes with its terminating NUL on macOS.
 const SOCKET_PATH_LIMIT: usize = 103;

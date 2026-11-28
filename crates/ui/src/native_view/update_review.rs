@@ -172,10 +172,16 @@ impl NativeView {
                 }
             }
             Err(error) => Phase::Failed {
-                message: format!("Couldn't fetch {id}'s source: {}", error.message),
+                message: fetch_failed(id, &error.message),
                 retry: error.retryable,
             },
         };
         cx.notify();
     }
+}
+
+/// Why `id`'s changes can't be shown: "Couldn't fetch <slug>'s source: <reason>", which the
+/// dialog and `update --diff` both say.
+pub(crate) fn fetch_failed(id: &SkillId, reason: &str) -> String {
+    format!("Couldn't fetch {id}'s source: {reason}")
 }

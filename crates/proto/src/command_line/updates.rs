@@ -1,7 +1,8 @@
 //! What `updates` answers: Library's Updates filter, and the sources the last check couldn't
-//! reach.
+//! reach; and what `update --diff` answers: each named skill's review.
 
 use super::SkillRow;
+use crate::UpdateReview;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -21,4 +22,13 @@ pub struct Unchecked {
     pub slug: String,
     /// Why, as the skill's page says it.
     pub reason: String,
+}
+
+/// What Update would change in the named skills, as their review dialogs show it.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct ReviewsOutput {
+    /// Each named skill with an update, its changes from its library content to its source's.
+    pub reviews: Vec<UpdateReview>,
+    /// The named skills without an update, by slug.
+    pub current: Vec<String>,
 }
