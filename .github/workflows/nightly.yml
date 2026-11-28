@@ -7,7 +7,7 @@ name: Nightly
 # newest betas are kept. See docs/release.md.
 on:
   schedule:
-    - cron: "0 2 * * *"
+    - cron: "23 3 * * *"
   workflow_dispatch:
 
 # One release at a time, manual releases included: they all create tags.
